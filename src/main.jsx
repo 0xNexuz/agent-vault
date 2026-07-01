@@ -28,10 +28,10 @@ import './styles.css';
 
 const GITHUB_URL = 'https://github.com/BOTChain-bot';
 const TESTNET = {
-  chainId: import.meta.env.VITE_BOT_TESTNET_CHAIN_ID || '',
+  chainId: import.meta.env.VITE_BOT_TESTNET_CHAIN_ID || '0x3c8',
   chainName: import.meta.env.VITE_BOT_TESTNET_NAME || 'BOT Chain Testnet',
-  rpcUrl: import.meta.env.VITE_BOT_TESTNET_RPC_URL || '',
-  explorerUrl: import.meta.env.VITE_BOT_TESTNET_EXPLORER_URL || '',
+  rpcUrl: import.meta.env.VITE_BOT_TESTNET_RPC_URL || 'https://rpc.bohr.life',
+  explorerUrl: import.meta.env.VITE_BOT_TESTNET_EXPLORER_URL || 'https://scan.bohr.life',
   currencySymbol: import.meta.env.VITE_BOT_TESTNET_SYMBOL || 'BOT',
 };
 
@@ -58,7 +58,7 @@ const docs = [
   },
   {
     title: 'Testnet readiness',
-    body: 'The app does not fake BOT testnet connectivity. Add VITE_BOT_TESTNET_CHAIN_ID and VITE_BOT_TESTNET_RPC_URL after BOT Chain publishes official testnet details, then wallet switching and balance checks run against that network.',
+    body: 'AgentVault is configured for BOT Chain testnet: chain ID 968, RPC https://rpc.bohr.life, explorer https://scan.bohr.life, native token BOT. Wallet switching and balance checks run against this network.',
   },
 ];
 

@@ -13,9 +13,17 @@ AgentVault is a production-ready frontend shell for a BOT Chain sprint build. It
 - Owner approval signing with `personal_sign`
 - Policy toggles, daily spend limit, audit filtering, audit export, and agent proposal UI
 
-## What needs official BOT testnet inputs
+## BOT Chain testnet
 
-The frontend refuses to fake BOT testnet connectivity. Add the official values when available:
+AgentVault is configured for BOT Chain testnet:
+
+- Chain ID: `968` (`0x3c8`)
+- RPC: `https://rpc.bohr.life`
+- Native token: `BOT`
+- Total supply: `150 Million`
+- Explorer: `https://scan.bohr.life/`
+
+The default app config already includes these values. You can still override them with environment variables:
 
 ```bash
 cp .env.example .env
