@@ -77,7 +77,23 @@ The included `contracts/AgentVault.sol` enforces:
 - allowed protocol selectors or target addresses
 - event emission for every proposal and execution
 
-Deploy it with:
+### Simple setup
+
+Use the guided setup command first. It creates fresh testnet-only deployer and agent wallets locally in `.env`, prints the addresses to fund, checks BOT Chain testnet balances, deploys the vault after both wallets have BOT, and saves the deployed `VAULT_ADDRESS`.
+
+```bash
+npm run setup:agentvault
+```
+
+If it says the wallets need funds, send BOT testnet tokens to both printed addresses and run the same command again:
+
+```bash
+npm run setup:agentvault
+```
+
+Do not paste funded private keys into chat. The safe path is to let the script create local testnet wallets, fund only those addresses, and keep `.env` private.
+
+Manual deployment is still available:
 
 ```bash
 DEPLOYER_PRIVATE_KEY=0x... AGENT_ADDRESS=0x... npm run deploy:vault
@@ -90,7 +106,7 @@ The worker in `scripts/agent-worker.mjs` is the proof that agents can act after 
 Run locally:
 
 ```bash
-AGENT_PRIVATE_KEY=0x... VAULT_ADDRESS=0x... npm run agent:worker
+npm run agent:worker
 ```
 
 Run through GitHub Actions:
