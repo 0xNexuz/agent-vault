@@ -22,6 +22,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 88px;
 }
 
 body {
@@ -139,25 +140,25 @@ footer,
   content: "";
   background-position: center;
   background-size: cover;
-  opacity: 0.18;
+  opacity: 0.1;
   filter: saturate(0.9) contrast(1.05);
 }
 
 .imageHero::before {
-  background-image: linear-gradient(90deg, rgba(12, 15, 13, 0.94), rgba(12, 15, 13, 0.4), rgba(12, 15, 13, 0.9)), url("/design/hero.png");
+  background-image: linear-gradient(90deg, rgba(12, 15, 13, 0.98), rgba(12, 15, 13, 0.84), rgba(12, 15, 13, 0.97)), url("/design/hero.png");
   opacity: 1;
 }
 
 .imageReview::after {
-  background-image: linear-gradient(90deg, rgba(12, 15, 13, 0.6), rgba(12, 15, 13, 0.92)), url("/design/review.png");
+  background-image: linear-gradient(90deg, rgba(12, 15, 13, 0.88), rgba(12, 15, 13, 0.97)), url("/design/review.png");
 }
 
 .imageDepin::after {
-  background-image: linear-gradient(180deg, rgba(12, 15, 13, 0.78), rgba(12, 15, 13, 0.9)), url("/design/depin.png");
+  background-image: linear-gradient(180deg, rgba(12, 15, 13, 0.9), rgba(12, 15, 13, 0.97)), url("/design/depin.png");
 }
 
 .imageClosing::before {
-  background-image: linear-gradient(180deg, rgba(12, 15, 13, 0.83), rgba(12, 15, 13, 0.95)), url("/design/closing.png");
+  background-image: linear-gradient(180deg, rgba(12, 15, 13, 0.91), rgba(12, 15, 13, 0.98)), url("/design/closing.png");
   opacity: 1;
 }
 
@@ -254,13 +255,34 @@ p {
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
 }
 
 .button:hover,
 .chip:hover,
 .priceCard:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+}
+
+.primary:hover {
+  box-shadow: 0 14px 38px rgba(215, 255, 105, 0.22);
+}
+
+.panel,
+.proof,
+.docCard,
+.auditEvent,
+.dashboardPreview {
+  transition: transform 0.24s ease, border-color 0.24s ease, background 0.24s ease, box-shadow 0.24s ease;
+}
+
+.panel:hover,
+.proof:hover,
+.docCard:hover,
+.auditEvent:hover {
+  transform: translateY(-4px);
+  border-color: rgba(215, 255, 105, 0.28);
+  background: linear-gradient(145deg, rgba(238, 236, 226, 0.13), rgba(238, 236, 226, 0.055));
 }
 
 .primary {
@@ -818,6 +840,41 @@ code {
   grid-column: 1 / -1;
 }
 
+.txConsole {
+  display: grid;
+  gap: 14px;
+}
+
+.txStatus {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.txStatus .button {
+  align-self: end;
+  width: max-content;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s ease, border-color 0.24s ease, background 0.24s ease, box-shadow 0.24s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal.visible.panel:hover,
+.reveal.visible.proof:hover,
+.reveal.visible.docCard:hover,
+.reveal.visible.auditEvent:hover,
+.reveal.visible.priceCard:hover {
+  transform: translateY(-4px);
+}
+
 .docs {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -983,6 +1040,10 @@ footer a {
   .docsGrid,
   .executionGrid,
   .proposalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .txStatus {
     grid-template-columns: 1fr;
   }
 

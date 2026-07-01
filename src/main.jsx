@@ -50,14 +50,14 @@ const docs = [
   },
   {
     title: 'Approval flow',
-    body: 'An agent proposes an action, the UI runs a live wallet and network preflight, then the owner signs an approval intent. In a full deployment, that signature is submitted to the vault contract before execution.',
+    body: 'An agent proposes an action, the UI runs a live wallet and network preflight, then the owner signs an approval intent. The current build can also send an on-chain execution proof transaction to BOT Chain testnet.',
   },
   {
     title: 'Agent runtime',
-    body: 'Agents are treated as bounded operators. They can recommend swaps, bridge routes, reward claims, or blocked transfers, but every action must match a policy before execution. This frontend exposes the runtime as live proposals tied to wallet/network state.',
+    body: 'Agents are bounded operators. Market Operator now prepares a policy-scoped action and can trigger a wallet-submitted proof transaction on BOT testnet. Direct BDEX/Bridge execution comes after vault and protocol contract addresses are integrated.',
   },
   {
-    title: 'Testnet readiness',
+    title: 'BOT testnet connected',
     body: 'AgentVault is configured for BOT Chain testnet: chain ID 968, RPC https://rpc.bohr.life, explorer https://scan.bohr.life, native token BOT. Wallet switching and balance checks run against this network.',
   },
 ];
@@ -121,6 +121,12 @@ function formatBalance(hexBalance) {
   return `${whole}.${fraction}`;
 }
 
+function utf8ToHex(value) {
+  return `0x${Array.from(new TextEncoder().encode(value))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
 async function requestWallet(method, params) {
   if (!window.ethereum) {
     throw new Error('No injected wallet found. Install BO Wallet or MetaMask-compatible wallet.');
@@ -130,17 +136,34 @@ async function requestWallet(method, params) {
 
 function App() {
   const [wallet, setWallet] = useState({ address: '', chainId: '', balance: '', status: 'Disconnected', error: '' });
-  const [vaultStatus, setVaultStatus] = useState('Configure testnet');
+  const [vaultStatus, setVaultStatus] = useState('Connect BOT testnet');
   const [policies, setPolicies] = useState(initialPolicies);
   const [dailyLimit, setDailyLimit] = useState(18);
   const [proposalStatus, setProposalStatus] = useState('ready');
   const [filter, setFilter] = useState('All');
   const [preflight, setPreflight] = useState(null);
+  const [tx, setTx] = useState({ hash: '', status: 'No on-chain action yet', explorer: '' });
   const [signature, setSignature] = useState('');
   const [activePlan, setActivePlan] = useState('Operator');
 
   const connected = Boolean(wallet.address);
   const configured = hasTestnetConfig();
+  const onBotTestnet = wallet.chainId?.toLowerCase() === TESTNET.chainId.toLowerCase();
+
+  useEffect(() => {
+    const targets = document.querySelectorAll('.section, .panel, .proof, .docCard, .priceCard, .auditEvent');
+    targets.forEach((target) => target.classList.add('reveal'));
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!window.ethereum) return;
@@ -157,21 +180,38 @@ function App() {
   }, []);
 
   const auditEvents = useMemo(() => {
-    if (!signature) return baseEvents;
-    return [
-      {
-        type: 'Owner approval signed',
-        agent: 'Owner Wallet',
-        protocol: 'AgentVault',
+    const liveEvents = [];
+    if (tx.hash) {
+      liveEvents.push({
+        type: 'Agent proof sent on-chain',
+        agent: 'Market Operator',
+        protocol: 'BOT Testnet',
         risk: 'low',
-        status: 'completed',
-        hash: `${signature.slice(0, 10)}...${signature.slice(-6)}`,
-        reason: 'Owner signed an approval intent. Submit this signature to the vault contract after deployment.',
+        status: tx.status === 'Confirmed on-chain' ? 'completed' : 'review',
+        hash: `${tx.hash.slice(0, 10)}...${tx.hash.slice(-6)}`,
+        reason: 'AgentVault wrote a policy-bound execution proof transaction to BOT Chain testnet.',
         time: 'Now',
-      },
+      });
+    }
+    if (signature) {
+      liveEvents.push(
+        {
+          type: 'Owner approval signed',
+          agent: 'Owner Wallet',
+          protocol: 'AgentVault',
+          risk: 'low',
+          status: 'completed',
+          hash: `${signature.slice(0, 10)}...${signature.slice(-6)}`,
+          reason: 'Owner signed an approval intent. Submit this signature to the vault contract after deployment.',
+          time: 'Now',
+        },
+      );
+    }
+    return [
+      ...liveEvents,
       ...baseEvents,
     ];
-  }, [signature]);
+  }, [signature, tx.hash, tx.status]);
 
   const filteredEvents = useMemo(() => {
     if (filter === 'All') return auditEvents;
@@ -203,6 +243,7 @@ function App() {
     }
     try {
       await requestWallet('wallet_switchEthereumChain', [{ chainId: TESTNET.chainId }]);
+      setWallet((current) => ({ ...current, chainId: TESTNET.chainId, error: '' }));
     } catch (switchError) {
       if (switchError.code === 4902) {
         await requestWallet('wallet_addEthereumChain', [{
@@ -212,6 +253,7 @@ function App() {
           rpcUrls: [TESTNET.rpcUrl],
           blockExplorerUrls: TESTNET.explorerUrl ? [TESTNET.explorerUrl] : [],
         }]);
+        setWallet((current) => ({ ...current, chainId: TESTNET.chainId, error: '' }));
       } else {
         setWallet((current) => ({ ...current, error: switchError.message || 'Network switch failed.' }));
       }
@@ -231,7 +273,7 @@ function App() {
       await switchToTestnet();
       return;
     }
-    setVaultStatus('Ready for contract deployment');
+    setVaultStatus('BOT testnet ready');
   };
 
   const runLivePreflight = async () => {
@@ -240,13 +282,68 @@ function App() {
       const chainId = await requestWallet('eth_chainId');
       await refreshBalance();
       const verdict = configured && chainId === TESTNET.chainId
-        ? 'Ready: wallet is connected to the configured BOT testnet.'
+        ? 'Ready: wallet is connected to BOT Chain testnet.'
         : configured
-          ? 'Network mismatch: switch wallet to the configured BOT testnet.'
+          ? 'Network mismatch: switch wallet to BOT Chain testnet.'
           : 'Config needed: add official BOT testnet RPC and chain ID to .env.';
       setPreflight({ chainId, verdict, at: new Date().toLocaleTimeString() });
     } catch (error) {
       setPreflight({ chainId: wallet.chainId || 'unknown', verdict: error.message, at: new Date().toLocaleTimeString() });
+    }
+  };
+
+  const executeAgentOnchain = async () => {
+    try {
+      setTx({ hash: '', status: 'Preparing wallet transaction...', explorer: '' });
+      if (!connected) {
+        await connectWallet();
+      }
+      const chainId = await requestWallet('eth_chainId');
+      if (chainId.toLowerCase() !== TESTNET.chainId.toLowerCase()) {
+        await switchToTestnet();
+        setTx({ hash: '', status: 'Network switched. Press Execute again after wallet confirms BOT testnet.', explorer: '' });
+        return;
+      }
+      const from = wallet.address || (await requestWallet('eth_accounts'))[0];
+      const payload = {
+        app: 'AgentVault',
+        network: 'BOT Chain Testnet',
+        agent: 'Market Operator',
+        action: 'BDEX_SWAP_PROOF',
+        requestedAmount: '12 BOT',
+        policy: {
+          dailyLimit: `${dailyLimit} BOT`,
+          swapAllowed: policies.swap,
+          bridgeAllowed: policies.bridge,
+          emergencyPause: policies.emergencyPause,
+        },
+        createdAt: new Date().toISOString(),
+      };
+      if (!policies.swap || policies.emergencyPause || dailyLimit < 12) {
+        setTx({ hash: '', status: 'Blocked by policy. Enable swap, resume vault, and keep the daily limit at 12 BOT or higher.', explorer: '' });
+        return;
+      }
+      const hash = await requestWallet('eth_sendTransaction', [{
+        from,
+        to: from,
+        value: '0x0',
+        data: utf8ToHex(JSON.stringify(payload)),
+      }]);
+      const explorer = `${TESTNET.explorerUrl.replace(/\/$/, '')}/tx/${hash}`;
+      setTx({ hash, status: 'Submitted to BOT testnet', explorer });
+      setProposalStatus('completed');
+      for (let index = 0; index < 18; index += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 3500));
+        const receipt = await requestWallet('eth_getTransactionReceipt', [hash]);
+        if (receipt) {
+          setTx({ hash, status: receipt.status === '0x1' ? 'Confirmed on-chain' : 'Transaction reverted', explorer });
+          await refreshBalance(from);
+          return;
+        }
+      }
+      setTx({ hash, status: 'Submitted. Confirmation pending in wallet RPC.', explorer });
+    } catch (error) {
+      setTx({ hash: '', status: error.message || 'Transaction failed before submission.', explorer: '' });
     }
   };
 
@@ -310,7 +407,7 @@ function App() {
               <Play size={17} />
               {vaultStatus}
             </button>
-            <a className="textLink" href="#review">Review live flow <ArrowRight size={15} /></a>
+            <a className="textLink" href="#review">Execute agent flow <ArrowRight size={15} /></a>
           </div>
           {wallet.error && <p className="notice dangerText">{wallet.error}</p>}
         </div>
@@ -325,7 +422,7 @@ function App() {
         </div>
         <div className="proofGrid">
           <Proof icon={Wallet} title="Real wallet connect" detail={connected ? shortAddress(wallet.address) : 'Awaiting wallet'} />
-          <Proof icon={Shield} title="BOT testnet config" detail={configured ? TESTNET.chainId : 'RPC needed'} />
+          <Proof icon={Shield} title="BOT testnet active" detail={`Chain 968 (${TESTNET.chainId})`} />
           <Proof icon={GitBranch} title="Bridge-ready policy" detail={policies.bridge ? 'Allowlisted' : 'Disabled'} />
           <Proof icon={RefreshCcw} title="BDEX controls" detail={policies.swap ? 'Policy enabled' : 'Review only'} />
         </div>
@@ -365,10 +462,10 @@ function App() {
           </div>
           <div className="panel reviewMini">
             <h3>Agent proposal queue</h3>
-            <p>Bridge Runner can propose 8.2 BOT only after the owner connects and signs policy approval.</p>
+            <p>Market Operator can write an execution proof to BOT testnet after policy and wallet checks pass.</p>
             <div className="splitButtons">
               <button className="button primary small" onClick={signApprovalIntent}>Sign intent</button>
-              <button className="button ghost small" onClick={() => setProposalStatus('blocked')}>Block</button>
+              <button className="button ghost small" onClick={executeAgentOnchain}>Send tx</button>
             </div>
           </div>
         </div>
@@ -402,6 +499,7 @@ function App() {
           </div>
           <div className="actions">
             <button className="button primary" onClick={signApprovalIntent}><Check size={17} />Sign approval</button>
+            <button className="button ghost" onClick={executeAgentOnchain}><TerminalSquare size={17} />Execute on-chain</button>
             <button className="button danger" onClick={() => setProposalStatus('blocked')}><X size={17} />Deny</button>
           </div>
         </div>
@@ -438,7 +536,7 @@ function App() {
         </div>
         <div className="opsPanel">
           <Metric label="Wallet balance" value={`${wallet.balance || '0.0000'} BOT`} />
-          <Metric label="Chain" value={wallet.chainId || 'Not connected'} />
+          <Metric label="Network" value={onBotTestnet ? 'BOT testnet' : wallet.chainId || 'Not connected'} />
           <Metric label="Budget left" value={`${Math.max(0, dailyLimit - 12)} BOT`} />
           <Metric label="Vault state" value={vaultStatus} />
           <div className="chart" aria-label="Treasury line chart">
@@ -457,9 +555,10 @@ function App() {
         <div>
           <p className="eyebrow">Execution Controls</p>
           <h2>Let agents move funds, never control everything</h2>
-          <p>Run a live wallet/network preflight before signing any policy or action intent.</p>
+          <p>Run checks, then send an on-chain execution proof from the connected wallet on BOT Chain testnet.</p>
           <div className="actions">
             <button className="button primary" onClick={runLivePreflight}><TerminalSquare size={17} />Run live preflight</button>
+            <button className="button outline" onClick={executeAgentOnchain}><Bot size={17} />Execute agent tx</button>
             <button className="button ghost" onClick={() => setPolicies((state) => ({ ...state, emergencyPause: !state.emergencyPause }))}>
               <Pause size={17} />
               {policies.emergencyPause ? 'Resume vault' : 'Emergency pause'}
@@ -469,8 +568,8 @@ function App() {
         <div className="executionGrid">
           <PolicyCard title="BDEX Swap" icon={RefreshCcw} labels={['max slippage 0.7%', `${dailyLimit} BOT daily`, 'USDT route']} enabled={policies.swap} />
           <PolicyCard title="BOT Bridge" icon={GitBranch} labels={['destination allowlist', 'guardian review', '8.2 BOT queued']} enabled={policies.bridge} />
-          <div className="panel simulation">
-            <h3>Live preflight verdict</h3>
+          <div className="panel simulation txConsole">
+            <h3>On-chain tx console</h3>
             {preflight ? (
               <>
                 <Metric label="Chain ID" value={preflight.chainId} />
@@ -478,8 +577,13 @@ function App() {
                 <p>{preflight.verdict}</p>
               </>
             ) : (
-              <p>No simulation layer. This panel reads the connected wallet and reports whether the network is ready.</p>
+              <p>Connect wallet, run preflight, then execute the agent tx to create an explorer-visible proof.</p>
             )}
+            <div className="txStatus">
+              <Metric label="Transaction status" value={tx.status} />
+              {tx.hash && <Metric label="Transaction hash" value={`${tx.hash.slice(0, 10)}...${tx.hash.slice(-8)}`} />}
+              {tx.explorer && <a className="button primary small" href={tx.explorer} target="_blank" rel="noreferrer">Open in explorer <ArrowRight size={14} /></a>}
+            </div>
           </div>
         </div>
       </section>
@@ -495,7 +599,7 @@ function App() {
         <div className="docsGrid">
           {docs.map((item, index) => (
             <article className="docCard" key={item.title}>
-              <span>0{index + 1}</span>
+            <span>{String(index + 1).padStart(2, '0')}</span>
               <h3>{item.title}</h3>
               <p>{item.body}</p>
             </article>
