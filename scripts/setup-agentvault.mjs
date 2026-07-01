@@ -86,7 +86,7 @@ const env = {
   VITE_BOT_TESTNET_RPC_URL: rpcUrl,
   VITE_BOT_TESTNET_EXPLORER_URL: explorer,
   VITE_BOT_TESTNET_SYMBOL: 'BOT',
-  VITE_AGENT_STATUS_URL: 'http://127.0.0.1:8787/status',
+  VITE_AGENT_STATUS_URL: 'https://agent-vault-1.onrender.com/status',
   BOT_TESTNET_RPC_URL: rpcUrl,
   BOT_TESTNET_EXPLORER_URL: explorer,
   VAULT_DAILY_LIMIT_BOT: '50',

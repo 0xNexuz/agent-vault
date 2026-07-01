@@ -690,7 +690,10 @@ input[type="range"] {
 .queued,
 .pending,
 .standby,
-.not {
+.not,
+.checking,
+.starting,
+.setup-required {
   color: var(--teal);
   border-color: rgba(122, 168, 155, 0.38);
 }

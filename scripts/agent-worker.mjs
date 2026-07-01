@@ -5,7 +5,7 @@ import cors from 'cors';
 import { ethers } from 'ethers';
 
 const root = process.cwd();
-const port = Number(process.env.AGENT_PORT || 8787);
+const port = Number(process.env.PORT || process.env.AGENT_PORT || 8787);
 const rpcUrl = process.env.BOT_TESTNET_RPC_URL || process.env.VITE_BOT_TESTNET_RPC_URL || 'https://rpc.bohr.life';
 const explorer = process.env.BOT_TESTNET_EXPLORER_URL || process.env.VITE_BOT_TESTNET_EXPLORER_URL || 'https://scan.bohr.life';
 const privateKey = process.env.AGENT_PRIVATE_KEY;
@@ -24,10 +24,10 @@ const abi = fs.existsSync(artifactPath)
     ];
 
 let state = {
-  status: privateKey && vaultAddress ? 'starting' : 'standby',
+  status: privateKey && vaultAddress ? 'starting' : 'setup-required',
   proof: privateKey && vaultAddress
-    ? 'Agent worker booting with signing key and vault address.'
-    : 'Agent worker is installed but not autonomous yet. Missing AGENT_PRIVATE_KEY and/or VAULT_ADDRESS.',
+    ? 'Worker online. Preparing the next policy transaction.'
+    : 'Worker online. Add the agent key and vault address in the host secrets to begin on-chain execution.',
   network: 'BOT Chain Testnet',
   chainId: 968,
   vaultAddress: vaultAddress || '',
@@ -48,8 +48,8 @@ function persist() {
 async function runOnce() {
   state.lastHeartbeatAt = new Date().toISOString();
   if (!privateKey || !vaultAddress) {
-    state.status = 'standby';
-    state.proof = 'No background on-chain execution: configure AGENT_PRIVATE_KEY and VAULT_ADDRESS.';
+    state.status = 'setup-required';
+    state.proof = 'Worker online. Add the agent key and vault address in the host secrets to begin on-chain execution.';
     persist();
     return state;
   }
@@ -74,7 +74,7 @@ async function runOnce() {
   state = {
     ...state,
     status: 'tx-submitted',
-    proof: 'Background agent submitted an on-chain AgentExecution proof without a connected user wallet.',
+    proof: 'Hosted agent submitted an AgentExecution transaction without a connected browser wallet.',
     agentAddress: wallet.address,
     vaultAddress,
     lastRunAt: new Date().toISOString(),
@@ -88,7 +88,7 @@ async function runOnce() {
     ...state,
     status: receipt.status === 1 ? 'active' : 'reverted',
     proof: receipt.status === 1
-      ? 'Background agent is active: latest proof transaction confirmed on BOT Chain testnet.'
+      ? 'Hosted agent is active: latest vault transaction confirmed on BOT Chain testnet.'
       : 'Background agent submitted a transaction, but it reverted.',
     lastBlockNumber: String(receipt.blockNumber),
   };
@@ -99,8 +99,15 @@ async function runOnce() {
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.get('/', (_request, response) => response.json({
+  ok: true,
+  service: 'AgentVault worker',
+  statusUrl: '/status',
+  healthUrl: '/health',
+}));
 app.get('/health', (_request, response) => response.json({ ok: true }));
 app.get('/status', (_request, response) => response.json(state));
+app.get('/api/status', (_request, response) => response.json(state));
 app.post('/run-once', async (_request, response) => {
   try {
     response.json(await runOnce());

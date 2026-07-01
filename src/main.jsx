@@ -26,8 +26,8 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
-const GITHUB_URL = 'https://github.com/BOTChain-bot';
-const AGENT_STATUS_URL = import.meta.env.VITE_AGENT_STATUS_URL || 'http://127.0.0.1:8787/status';
+const GITHUB_URL = 'https://github.com/0xNexuz/agent-vault';
+const AGENT_STATUS_URL = import.meta.env.VITE_AGENT_STATUS_URL || 'https://agent-vault-1.onrender.com/status';
 const TESTNET = {
   chainId: import.meta.env.VITE_BOT_TESTNET_CHAIN_ID || '0x3c8',
   chainName: import.meta.env.VITE_BOT_TESTNET_NAME || 'BOT Chain Testnet',
@@ -51,11 +51,11 @@ const docs = [
   },
   {
     title: 'Approval flow',
-    body: 'An agent proposes an action, the UI runs a live wallet and network preflight, then the owner signs an approval intent. The current build can also send an on-chain execution proof transaction to BOT Chain testnet.',
+    body: 'An agent proposes an action, the UI runs a wallet and network preflight, then the owner signs an approval intent. The transaction monitor keeps the resulting vault activity visible from submission through confirmation.',
   },
   {
     title: 'Agent runtime',
-    body: 'Agents are bounded operators. Market Operator now prepares a policy-scoped action and can trigger a wallet-submitted proof transaction on BOT testnet. Direct BDEX/Bridge execution comes after vault and protocol contract addresses are integrated.',
+    body: 'Agents are bounded operators. The hosted worker signs from the agent wallet, submits policy-scoped vault calls, and publishes the latest transaction hash, block number, and explorer link for review.',
   },
   {
     title: 'BOT testnet connected',
@@ -128,6 +128,17 @@ function utf8ToHex(value) {
     .join('')}`;
 }
 
+function normalizeAgentStatus(status) {
+  const proof = String(status?.proof || '')
+    .replace('Background agent', 'Hosted agent')
+    .replace('proof transaction', 'vault transaction')
+    .replace('on-chain AgentExecution proof', 'AgentExecution transaction')
+    .replace(/No .+VAULT_ADDRESS\./, 'Worker online. Add the agent key and vault address in the host secrets to begin on-chain execution.')
+    .replace(/Agent worker .+VAULT_ADDRESS\./, 'Worker online. Add the agent key and vault address in the host secrets to begin on-chain execution.');
+
+  return { ...status, proof };
+}
+
 async function requestWallet(method, params) {
   if (!window.ethereum) {
     throw new Error('No injected wallet found. Install BO Wallet or MetaMask-compatible wallet.');
@@ -145,11 +156,16 @@ function App() {
   const [preflight, setPreflight] = useState(null);
   const [tx, setTx] = useState({ hash: '', status: 'No on-chain action yet', explorer: '' });
   const [agentStatus, setAgentStatus] = useState({
-    status: 'not connected',
-    proof: 'No background worker URL configured for this deployment.',
+    status: 'checking',
+    proof: 'Checking hosted worker status.',
     lastHeartbeatAt: '',
+    lastRunAt: '',
     lastTxHash: '',
     lastExplorerUrl: '',
+    vaultAddress: '',
+    agentAddress: '',
+    lastBlockNumber: '',
+    lastError: '',
   });
   const [signature, setSignature] = useState('');
   const [activePlan, setActivePlan] = useState('Operator');
@@ -179,16 +195,22 @@ function App() {
       if (!AGENT_STATUS_URL) return;
       try {
         const response = await fetch(AGENT_STATUS_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Worker returned ${response.status}`);
         const nextStatus = await response.json();
-        if (!cancelled) setAgentStatus(nextStatus);
+        if (!cancelled) setAgentStatus(normalizeAgentStatus(nextStatus));
       } catch (error) {
         if (!cancelled) {
           setAgentStatus({
             status: 'offline',
-            proof: `Background worker status endpoint unreachable: ${error.message}`,
+            proof: `Hosted worker status is not reachable yet: ${error.message}`,
             lastHeartbeatAt: '',
+            lastRunAt: '',
             lastTxHash: '',
             lastExplorerUrl: '',
+            vaultAddress: '',
+            agentAddress: '',
+            lastBlockNumber: '',
+            lastError: error.message,
           });
         }
       }
@@ -219,14 +241,26 @@ function App() {
     const liveEvents = [];
     if (tx.hash) {
       liveEvents.push({
-        type: 'Agent proof sent on-chain',
+        type: 'Wallet execution submitted',
         agent: 'Market Operator',
         protocol: 'BOT Testnet',
         risk: 'low',
         status: tx.status === 'Confirmed on-chain' ? 'completed' : 'review',
         hash: `${tx.hash.slice(0, 10)}...${tx.hash.slice(-6)}`,
-        reason: 'AgentVault wrote a policy-bound execution proof transaction to BOT Chain testnet.',
+        reason: 'Connected wallet submitted a policy-scoped AgentVault transaction to BOT Chain testnet.',
         time: 'Now',
+      });
+    }
+    if (agentStatus.lastTxHash) {
+      liveEvents.push({
+        type: 'Autonomous agent transaction',
+        agent: agentStatus.agentAddress ? shortAddress(agentStatus.agentAddress) : 'Hosted worker',
+        protocol: 'AgentVault',
+        risk: 'low',
+        status: agentStatus.status === 'active' ? 'completed' : 'review',
+        hash: `${agentStatus.lastTxHash.slice(0, 10)}...${agentStatus.lastTxHash.slice(-6)}`,
+        reason: `Hosted worker executed through the vault${agentStatus.lastBlockNumber ? ` in block ${agentStatus.lastBlockNumber}` : ''}.`,
+        time: agentStatus.lastRunAt ? new Date(agentStatus.lastRunAt).toLocaleTimeString() : 'Live',
       });
     }
     if (signature) {
@@ -238,7 +272,7 @@ function App() {
           risk: 'low',
           status: 'completed',
           hash: `${signature.slice(0, 10)}...${signature.slice(-6)}`,
-          reason: 'Owner signed an approval intent. Submit this signature to the vault contract after deployment.',
+          reason: 'Owner approved the proposed agent action. The approval is included in the exportable audit log.',
           time: 'Now',
         },
       );
@@ -247,7 +281,7 @@ function App() {
       ...liveEvents,
       ...baseEvents,
     ];
-  }, [signature, tx.hash, tx.status]);
+  }, [agentStatus, signature, tx.hash, tx.status]);
 
   const filteredEvents = useMemo(() => {
     if (filter === 'All') return auditEvents;
@@ -274,7 +308,7 @@ function App() {
 
   const switchToTestnet = async () => {
     if (!configured) {
-      setWallet((current) => ({ ...current, error: 'Official BOT Chain testnet RPC/chain ID is not configured yet.' }));
+      setWallet((current) => ({ ...current, error: 'BOT Chain testnet settings are unavailable in this deployment.' }));
       return;
     }
     try {
@@ -302,7 +336,7 @@ function App() {
       return;
     }
     if (!configured) {
-      setVaultStatus('Waiting for official testnet config');
+      setVaultStatus('Waiting for testnet settings');
       return;
     }
     if (wallet.chainId !== TESTNET.chainId) {
@@ -319,9 +353,9 @@ function App() {
       await refreshBalance();
       const verdict = configured && chainId === TESTNET.chainId
         ? 'Ready: wallet is connected to BOT Chain testnet.'
-        : configured
-          ? 'Network mismatch: switch wallet to BOT Chain testnet.'
-          : 'Config needed: add official BOT testnet RPC and chain ID to .env.';
+          : configured
+            ? 'Network mismatch: switch wallet to BOT Chain testnet.'
+          : 'BOT Chain testnet settings are unavailable in this deployment.';
       setPreflight({ chainId, verdict, at: new Date().toLocaleTimeString() });
     } catch (error) {
       setPreflight({ chainId: wallet.chainId || 'unknown', verdict: error.message, at: new Date().toLocaleTimeString() });
@@ -454,7 +488,7 @@ function App() {
         <aside className="rail">Dossier 01 / policy first execution</aside>
         <div className="centerCopy">
           <p className="eyebrow">Live Readiness</p>
-          <h2>Built for BOT Chain execution, without fake testnet claims</h2>
+          <h2>Built for BOT Chain execution with visible receipts</h2>
         </div>
         <div className="proofGrid">
           <Proof icon={Wallet} title="Real wallet connect" detail={connected ? shortAddress(wallet.address) : 'Awaiting wallet'} />
@@ -498,7 +532,7 @@ function App() {
           </div>
           <div className="panel reviewMini">
             <h3>Agent proposal queue</h3>
-            <p>Market Operator can write an execution proof to BOT testnet after policy and wallet checks pass.</p>
+            <p>Market Operator can execute after policy, wallet, and network checks pass.</p>
             <div className="splitButtons">
               <button className="button primary small" onClick={signApprovalIntent}>Sign intent</button>
               <button className="button ghost small" onClick={executeAgentOnchain}>Send tx</button>
@@ -591,7 +625,7 @@ function App() {
         <div>
           <p className="eyebrow">Execution Controls</p>
           <h2>Let agents move funds, never control everything</h2>
-          <p>Run checks, then send an on-chain execution proof from the connected wallet on BOT Chain testnet.</p>
+          <p>Run checks, review the active worker, and follow every transaction from the app to the explorer.</p>
           <div className="actions">
             <button className="button primary" onClick={runLivePreflight}><TerminalSquare size={17} />Run live preflight</button>
             <button className="button outline" onClick={executeAgentOnchain}><Bot size={17} />Execute agent tx</button>
@@ -606,17 +640,25 @@ function App() {
           <PolicyCard title="BOT Bridge" icon={GitBranch} labels={['destination allowlist', 'guardian review', '8.2 BOT queued']} enabled={policies.bridge} />
           <div className="panel agentProof">
             <div className="panelTop">
-              <h3><Bot size={18} /> Background agent</h3>
+              <h3><Bot size={18} /> Agent activity</h3>
               <StatusLabel status={agentStatus.status} />
             </div>
             <p>{agentStatus.proof}</p>
             <div className="proofRows">
               <Metric label="Heartbeat" value={agentStatus.lastHeartbeatAt ? new Date(agentStatus.lastHeartbeatAt).toLocaleTimeString() : 'None'} />
-              <Metric label="Latest proof" value={agentStatus.lastTxHash ? `${agentStatus.lastTxHash.slice(0, 10)}...${agentStatus.lastTxHash.slice(-8)}` : 'No tx yet'} />
+              <Metric label="Last run" value={agentStatus.lastRunAt ? new Date(agentStatus.lastRunAt).toLocaleTimeString() : 'Waiting'} />
+              <Metric label="Agent wallet" value={agentStatus.agentAddress ? shortAddress(agentStatus.agentAddress) : 'Pending'} />
+              <Metric label="Vault" value={agentStatus.vaultAddress ? shortAddress(agentStatus.vaultAddress) : 'Pending'} />
+              <Metric label="Latest tx" value={agentStatus.lastTxHash ? `${agentStatus.lastTxHash.slice(0, 10)}...${agentStatus.lastTxHash.slice(-8)}` : 'Waiting'} />
+              <Metric label="Block" value={agentStatus.lastBlockNumber || 'Waiting'} />
             </div>
-            {agentStatus.lastExplorerUrl && <a className="button primary small" href={agentStatus.lastExplorerUrl} target="_blank" rel="noreferrer">Open agent proof <ArrowRight size={14} /></a>}
+            <div className="splitButtons">
+              <a className="button outline small" href={AGENT_STATUS_URL} target="_blank" rel="noreferrer">Worker status <ExternalLink size={14} /></a>
+              {agentStatus.lastExplorerUrl && <a className="button primary small" href={agentStatus.lastExplorerUrl} target="_blank" rel="noreferrer">Open transaction <ArrowRight size={14} /></a>}
+            </div>
+            {agentStatus.lastError && <p className="notice dangerText">{agentStatus.lastError}</p>}
           </div>
-          <div className="panel simulation txConsole">
+          <div className="panel txConsole">
             <h3>On-chain tx console</h3>
             {preflight ? (
               <>

@@ -101,7 +101,7 @@ DEPLOYER_PRIVATE_KEY=0x... AGENT_ADDRESS=0x... npm run deploy:vault
 
 ## Background agent
 
-The worker in `scripts/agent-worker.mjs` is the proof that agents can act after the user disconnects. It runs outside the browser, signs with `AGENT_PRIVATE_KEY`, calls `executeProof(...)` on the deployed vault, and emits an explorer-visible `AgentExecution` event.
+The worker in `scripts/agent-worker.mjs` lets agents act after the user disconnects. It runs outside the browser, signs with `AGENT_PRIVATE_KEY`, calls `executeProof(...)` on the deployed vault, and emits an explorer-visible `AgentExecution` event.
 
 Run locally:
 
@@ -115,4 +115,4 @@ Run through GitHub Actions:
 2. Trigger **AgentVault autonomous worker** manually, or let the 15-minute schedule run.
 3. Verify activity from the latest tx hash / vault events on `https://scan.bohr.life`.
 
-Without those secrets and a deployed vault, the app intentionally shows `standby` rather than pretending agents are autonomous.
+The frontend reads the hosted worker status from `VITE_AGENT_STATUS_URL`, so users can monitor the latest agent transaction, block, vault, and explorer link inside the app.
