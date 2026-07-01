@@ -6,15 +6,22 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "deploy:vault": "node scripts/deploy-vault.mjs",
+    "agent:worker": "node scripts/agent-worker.mjs",
+    "agent:once": "node scripts/agent-run-once.mjs"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "ethers": "^6.16.0",
+    "express": "^5.2.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "lucide-react": "^0.468.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",
+    "solc": "^0.8.31",
     "vite": "^7.0.0",
     "typescript": "^5.8.0"
   }

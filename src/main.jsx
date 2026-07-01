@@ -27,6 +27,7 @@ import {
 import './styles.css';
 
 const GITHUB_URL = 'https://github.com/BOTChain-bot';
+const AGENT_STATUS_URL = import.meta.env.VITE_AGENT_STATUS_URL || 'http://127.0.0.1:8787/status';
 const TESTNET = {
   chainId: import.meta.env.VITE_BOT_TESTNET_CHAIN_ID || '0x3c8',
   chainName: import.meta.env.VITE_BOT_TESTNET_NAME || 'BOT Chain Testnet',
@@ -143,6 +144,13 @@ function App() {
   const [filter, setFilter] = useState('All');
   const [preflight, setPreflight] = useState(null);
   const [tx, setTx] = useState({ hash: '', status: 'No on-chain action yet', explorer: '' });
+  const [agentStatus, setAgentStatus] = useState({
+    status: 'not connected',
+    proof: 'No background worker URL configured for this deployment.',
+    lastHeartbeatAt: '',
+    lastTxHash: '',
+    lastExplorerUrl: '',
+  });
   const [signature, setSignature] = useState('');
   const [activePlan, setActivePlan] = useState('Operator');
 
@@ -163,6 +171,34 @@ function App() {
     }, { threshold: 0.12 });
     targets.forEach((target) => observer.observe(target));
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAgentStatus() {
+      if (!AGENT_STATUS_URL) return;
+      try {
+        const response = await fetch(AGENT_STATUS_URL, { cache: 'no-store' });
+        const nextStatus = await response.json();
+        if (!cancelled) setAgentStatus(nextStatus);
+      } catch (error) {
+        if (!cancelled) {
+          setAgentStatus({
+            status: 'offline',
+            proof: `Background worker status endpoint unreachable: ${error.message}`,
+            lastHeartbeatAt: '',
+            lastTxHash: '',
+            lastExplorerUrl: '',
+          });
+        }
+      }
+    }
+    loadAgentStatus();
+    const interval = setInterval(loadAgentStatus, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -568,6 +604,18 @@ function App() {
         <div className="executionGrid">
           <PolicyCard title="BDEX Swap" icon={RefreshCcw} labels={['max slippage 0.7%', `${dailyLimit} BOT daily`, 'USDT route']} enabled={policies.swap} />
           <PolicyCard title="BOT Bridge" icon={GitBranch} labels={['destination allowlist', 'guardian review', '8.2 BOT queued']} enabled={policies.bridge} />
+          <div className="panel agentProof">
+            <div className="panelTop">
+              <h3><Bot size={18} /> Background agent</h3>
+              <StatusLabel status={agentStatus.status} />
+            </div>
+            <p>{agentStatus.proof}</p>
+            <div className="proofRows">
+              <Metric label="Heartbeat" value={agentStatus.lastHeartbeatAt ? new Date(agentStatus.lastHeartbeatAt).toLocaleTimeString() : 'None'} />
+              <Metric label="Latest proof" value={agentStatus.lastTxHash ? `${agentStatus.lastTxHash.slice(0, 10)}...${agentStatus.lastTxHash.slice(-8)}` : 'No tx yet'} />
+            </div>
+            {agentStatus.lastExplorerUrl && <a className="button primary small" href={agentStatus.lastExplorerUrl} target="_blank" rel="noreferrer">Open agent proof <ArrowRight size={14} /></a>}
+          </div>
           <div className="panel simulation txConsole">
             <h3>On-chain tx console</h3>
             {preflight ? (

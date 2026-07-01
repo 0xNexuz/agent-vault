@@ -671,19 +671,26 @@ input[type="range"] {
 
 .approved,
 .completed,
+.active,
+.tx-submitted,
 .ready {
   color: var(--citron);
   border-color: rgba(215, 255, 105, 0.35);
 }
 
 .denied,
-.blocked {
+.blocked,
+.offline,
+.error,
+.reverted {
   color: var(--danger);
   border-color: rgba(255, 124, 103, 0.35);
 }
 
 .queued,
-.pending {
+.pending,
+.standby,
+.not {
   color: var(--teal);
   border-color: rgba(122, 168, 155, 0.38);
 }
@@ -838,6 +845,17 @@ code {
 
 .simulation {
   grid-column: 1 / -1;
+}
+
+.agentProof {
+  grid-column: 1 / -1;
+}
+
+.proofRows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
 }
 
 .txConsole {
@@ -1044,6 +1062,10 @@ footer a {
   }
 
   .txStatus {
+    grid-template-columns: 1fr;
+  }
+
+  .proofRows {
     grid-template-columns: 1fr;
   }
 

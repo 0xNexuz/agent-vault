@@ -1,0 +1,24 @@
+name: AgentVault autonomous worker
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run agent:once
+        env:
+          BOT_TESTNET_RPC_URL: https://rpc.bohr.life
+          BOT_TESTNET_EXPLORER_URL: https://scan.bohr.life
+          AGENT_PRIVATE_KEY: ${{ secrets.AGENT_PRIVATE_KEY }}
+          VAULT_ADDRESS: ${{ secrets.VAULT_ADDRESS }}
+          AGENT_ACTION_AMOUNT_BOT: "0"

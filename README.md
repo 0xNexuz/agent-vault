@@ -69,14 +69,34 @@ gh repo create agent-vault --public --source=. --remote=origin --push
 
 ## Contract path
 
-The intended vault contract should enforce:
+The included `contracts/AgentVault.sol` enforces:
 
 - owner address
 - agent allowlist
 - daily spend limit
 - allowed protocol selectors or target addresses
-- emergency pause
-- signed owner approval for policy updates
 - event emission for every proposal and execution
 
-Until the contract is deployed, this frontend signs approval intents and exports policy/audit state without pretending that an on-chain vault already exists.
+Deploy it with:
+
+```bash
+DEPLOYER_PRIVATE_KEY=0x... AGENT_ADDRESS=0x... npm run deploy:vault
+```
+
+## Background agent
+
+The worker in `scripts/agent-worker.mjs` is the proof that agents can act after the user disconnects. It runs outside the browser, signs with `AGENT_PRIVATE_KEY`, calls `executeProof(...)` on the deployed vault, and emits an explorer-visible `AgentExecution` event.
+
+Run locally:
+
+```bash
+AGENT_PRIVATE_KEY=0x... VAULT_ADDRESS=0x... npm run agent:worker
+```
+
+Run through GitHub Actions:
+
+1. Add repository secrets `AGENT_PRIVATE_KEY` and `VAULT_ADDRESS`.
+2. Trigger **AgentVault autonomous worker** manually, or let the 15-minute schedule run.
+3. Verify activity from the latest tx hash / vault events on `https://scan.bohr.life`.
+
+Without those secrets and a deployed vault, the app intentionally shows `standby` rather than pretending agents are autonomous.
