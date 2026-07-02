@@ -84,10 +84,10 @@ const agentRoles = [
 ];
 
 const actionOptions = [
-  { id: 'swap', label: 'Swap', protocol: 'BDEX', route: 'BOT to USDT', policyKey: 'swap', defaultAmount: 12, risk: 'low' },
-  { id: 'bridge', label: 'Bridge', protocol: 'BOT Bridge', route: 'BOT to Base', policyKey: 'bridge', defaultAmount: 8, risk: 'medium' },
-  { id: 'claim', label: 'Claim', protocol: 'Rewards', route: 'Rewards to treasury', policyKey: 'stake', defaultAmount: 5, risk: 'low' },
-  { id: 'transfer', label: 'Transfer', protocol: 'Treasury', route: 'Treasury to ops', policyKey: 'transfer', defaultAmount: 3, risk: 'high' },
+  { id: 'swap', roleId: 'trader', label: 'Swap', protocol: 'BDEX', route: 'BOT to USDT', policyKey: 'swap', defaultAmount: 12, risk: 'low' },
+  { id: 'bridge', roleId: 'guardian', label: 'Bridge', protocol: 'BOT Bridge', route: 'BOT to Base', policyKey: 'bridge', defaultAmount: 8, risk: 'medium' },
+  { id: 'claim', roleId: 'operator', label: 'Claim', protocol: 'Rewards', route: 'Rewards to treasury', policyKey: 'stake', defaultAmount: 5, risk: 'low' },
+  { id: 'transfer', roleId: 'trader', label: 'Transfer', protocol: 'Treasury', route: 'Treasury to ops', policyKey: 'transfer', defaultAmount: 3, risk: 'high' },
 ];
 
 const docs = [
@@ -216,6 +216,7 @@ function App() {
     lastError: '',
   });
   const [signature, setSignature] = useState('');
+  const [bundleSignature, setBundleSignature] = useState('');
   const [activePlan, setActivePlan] = useState('Operator');
   const [selectedRoleId, setSelectedRoleId] = useState('trader');
   const [selectedActionId, setSelectedActionId] = useState('swap');
@@ -351,6 +352,8 @@ function App() {
   };
 
   const selectAction = (action) => {
+    const matchingRole = agentRoles.find((role) => role.id === action.roleId);
+    if (matchingRole) setSelectedRoleId(matchingRole.id);
     setSelectedActionId(action.id);
     setActionAmount(action.defaultAmount);
     setSelectedAuditType(`${action.label === 'Claim' ? 'Reward claim' : `${action.label} proposal`}`);
@@ -369,6 +372,13 @@ function App() {
     setSelectedAuditType(event.type);
     document.getElementById('review')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const enabledPolicySummary = useMemo(() => actionOptions
+    .filter((action) => policies[action.policyKey])
+    .map((action) => {
+      const role = agentRoles.find((item) => item.id === action.roleId);
+      return `${role?.name || 'Agent'}: ${action.label} ${action.defaultAmount} BOT via ${action.protocol}`;
+    }), [policies]);
 
   const auditEvents = useMemo(() => {
     const liveEvents = [];
@@ -412,6 +422,18 @@ function App() {
         },
       );
     }
+    if (bundleSignature) {
+      liveEvents.push({
+        type: 'Policy bundle signed',
+        agent: 'Owner Wallet',
+        protocol: 'AgentVault',
+        risk: 'low',
+        status: 'completed',
+        hash: `${bundleSignature.slice(0, 10)}...${bundleSignature.slice(-6)}`,
+        reason: `Owner approved ${enabledPolicySummary.length} enabled policy paths in one signature.`,
+        time: 'Now',
+      });
+    }
     const proposalEvents = auditTemplates.map((event) => {
       const action = actionOptions.find((item) => item.id === event.actionId);
       const isAllowed = action ? policies[action.policyKey] && !policies.emergencyPause && dailyLimit >= action.defaultAmount : false;
@@ -425,7 +447,7 @@ function App() {
       ...liveEvents,
       ...proposalEvents,
     ];
-  }, [agentStatus, dailyLimit, policies, selectedProposal, signature, tx.explorer, tx.hash, tx.status]);
+  }, [agentStatus, bundleSignature, dailyLimit, enabledPolicySummary.length, policies, selectedProposal, signature, tx.explorer, tx.hash, tx.status]);
 
   const filteredEvents = useMemo(() => {
     if (filter === 'All') return auditEvents;
@@ -460,6 +482,14 @@ function App() {
     } catch (error) {
       setWallet((current) => ({ ...current, error: error.message || 'Wallet connection failed.' }));
     }
+  };
+
+  const disconnectWallet = () => {
+    setWallet({ address: '', chainId: '', balance: '', status: 'Disconnected', error: '' });
+    setVaultStatus('Connect BOT testnet');
+    setPreflight(null);
+    setTx({ hash: '', status: 'Wallet disconnected. Hosted agent status still refreshes below.', explorer: '' });
+    setBalanceStatus('Wallet disconnected. Agent activity is still live.');
   };
 
   const switchToTestnet = async () => {
@@ -580,8 +610,29 @@ function App() {
     }
   };
 
+  const signPolicyBundle = async () => {
+    try {
+      if (!connected) await connectWallet();
+      const message = [
+        'AgentVault policy bundle approval',
+        `Owner: ${wallet.address}`,
+        `Daily limit: ${dailyLimit} BOT`,
+        `Emergency pause: ${policies.emergencyPause ? 'on' : 'off'}`,
+        'Enabled policy paths:',
+        ...(enabledPolicySummary.length ? enabledPolicySummary.map((item) => `- ${item}`) : ['- none']),
+        `Chain: ${wallet.chainId || 'unknown'}`,
+        `Issued: ${new Date().toISOString()}`,
+      ].join('\n');
+      const signed = await requestWallet('personal_sign', [message, wallet.address]);
+      setBundleSignature(signed);
+      setProposalStatus('completed');
+    } catch (error) {
+      setWallet((current) => ({ ...current, error: error.message || 'Policy bundle signing failed.' }));
+    }
+  };
+
   const exportAudit = () => {
-    const blob = new Blob([JSON.stringify({ wallet, policies, dailyLimit, selectedProposal, signature, events: auditEvents }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ wallet, policies, dailyLimit, selectedProposal, signature, bundleSignature, events: auditEvents }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -603,10 +654,17 @@ function App() {
           <a href="#docs">Docs</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
         </div>
-        <button className={connected ? 'button ghost active' : 'button ghost'} onClick={connectWallet}>
-          <Wallet size={17} />
-          {connected ? shortAddress(wallet.address) : 'Connect wallet'}
-        </button>
+        <div className="walletControls">
+          <button className={connected ? 'button ghost active' : 'button ghost'} onClick={connectWallet}>
+            <Wallet size={17} />
+            {connected ? shortAddress(wallet.address) : 'Connect wallet'}
+          </button>
+          {connected && (
+            <button className="button outline iconOnly" onClick={disconnectWallet} aria-label="Disconnect wallet" title="Disconnect wallet">
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </nav>
 
       <section id="hero" className="section hero imageHero">
@@ -693,8 +751,12 @@ function App() {
               <input type="number" min="1" max="50" value={actionAmount} onChange={(event) => setActionAmount(Number(event.target.value || 0))} />
               <small>BOT</small>
             </label>
+            <div className="bundlePreview">
+              {enabledPolicySummary.map((item) => <span key={item}>{item}</span>)}
+            </div>
             <div className="splitButtons">
               <button className="button primary small" onClick={signApprovalIntent}>Sign intent</button>
+              <button className="button outline small" onClick={signPolicyBundle}>Sign policy bundle</button>
               <button className="button ghost small" onClick={executeAgentOnchain}>Send tx</button>
             </div>
           </div>
@@ -729,6 +791,7 @@ function App() {
           </div>
           <div className="actions">
             <button className="button primary" onClick={signApprovalIntent}><Check size={17} />Sign approval</button>
+            <button className="button outline" onClick={signPolicyBundle}><Shield size={17} />Sign all policies</button>
             <button className="button ghost" onClick={executeAgentOnchain}><TerminalSquare size={17} />Submit wallet tx</button>
             <button className="button danger" onClick={() => setProposalStatus('blocked')}><X size={17} />Deny</button>
           </div>
@@ -812,6 +875,7 @@ function App() {
               <StatusLabel status={agentStatus.status} />
             </div>
             <p>{agentStatus.proof}</p>
+            {!connected && <p className="panelNote">Browser wallet is disconnected. These transactions are coming from the hosted agent worker.</p>}
             <div className="proofRows">
               <Metric label="Heartbeat" value={agentStatus.lastHeartbeatAt ? new Date(agentStatus.lastHeartbeatAt).toLocaleTimeString() : 'None'} />
               <Metric label="Last run" value={agentStatus.lastRunAt ? new Date(agentStatus.lastRunAt).toLocaleTimeString() : 'Waiting'} />

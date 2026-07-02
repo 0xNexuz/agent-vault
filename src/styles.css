@@ -108,6 +108,12 @@ footer,
   gap: 6px;
 }
 
+.walletControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .section {
   position: relative;
   width: min(1440px, 100%);
@@ -311,6 +317,11 @@ p {
   min-height: 36px;
   padding: 0 14px;
   font-size: 14px;
+}
+
+.iconOnly {
+  width: 42px;
+  padding: 0;
 }
 
 .wide {
@@ -605,6 +616,21 @@ input[type="range"] {
 
 .amountField small {
   color: var(--muted);
+}
+
+.bundlePreview {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.bundlePreview span {
+  padding: 8px 10px;
+  border: 1px solid rgba(122, 168, 155, 0.26);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  background: rgba(122, 168, 155, 0.06);
 }
 
 .toggle input {
