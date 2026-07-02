@@ -2,106 +2,90 @@
 
 Policy-bound treasuries for autonomous agents on BOT Chain.
 
-AgentVault is a production-ready frontend shell for a BOT Chain sprint build. It connects to an injected EVM wallet, reads live account/network/balance state, prepares policy-bound vault actions, signs owner approval intents, and exports an audit log.
+AgentVault gives AI agents a controlled treasury they can use without taking full custody of user funds. Owners define policies such as allowed actions, daily spend limits, agent roles, and emergency pause. A hosted worker signs as the approved agent, executes through the deployed vault contract, and exposes every transaction through the app and BOT Chain explorer.
 
-## What is live
+## Live Links
 
-- Wallet connection through `window.ethereum`
-- Chain ID detection
-- Native balance read with `eth_getBalance`
-- Wallet network add/switch flow when BOT testnet values are configured
-- Owner approval signing with `personal_sign`
-- Policy toggles, daily spend limit, audit filtering, audit export, and agent proposal UI
+- App: https://agentvault-frontend.vercel.app
+- Worker status: https://agent-vault-1.onrender.com/status
+- Repository: https://github.com/0xNexuz/agent-vault
+- BOT Chain explorer: https://scan.bohr.life
 
-## BOT Chain testnet
+## What It Does
 
-AgentVault is configured for BOT Chain testnet:
+- Connects BO Wallet or any injected EVM wallet.
+- Switches to BOT Chain testnet.
+- Lets owners configure agent roles, allowed actions, daily limits, and emergency pause.
+- Supports single proposal signing and one-shot policy bundle signing.
+- Shows live hosted-agent activity after the browser wallet is disconnected.
+- Displays latest tx hash, block number, vault address, agent wallet, and explorer link.
+- Exports an audit log covering approvals, policies, manual wallet txs, and autonomous agent txs.
 
-- Chain ID: `968` (`0x3c8`)
-- RPC: `https://rpc.bohr.life`
-- Native token: `BOT`
-- Total supply: `150 Million`
-- Explorer: `https://scan.bohr.life/`
+## BOT Chain Testnet
 
-The default app config already includes these values. You can still override them with environment variables:
-
-```bash
-cp .env.example .env
+```txt
+Chain ID: 968 / 0x3c8
+RPC: https://rpc.bohr.life
+Native token: BOT
+Explorer: https://scan.bohr.life
 ```
 
-Then fill:
+## Architecture
 
-```bash
-VITE_BOT_TESTNET_CHAIN_ID=0x...
-VITE_BOT_TESTNET_RPC_URL=https://...
-VITE_BOT_TESTNET_EXPLORER_URL=https://...
+```mermaid
+flowchart TD
+  U["Owner / user"] --> FE["AgentVault frontend on Vercel"]
+  FE --> W["Injected wallet: BO Wallet / EVM wallet"]
+  FE --> R["Render worker status API"]
+  W -->|personal_sign| A["Owner approval intent"]
+  W -->|optional owner tx| C["BOT Chain testnet"]
+  R --> AG["Hosted agent worker"]
+  AG -->|signs with AGENT_PRIVATE_KEY| V["AgentVault smart contract"]
+  V -->|AgentExecution event| C
+  C --> E["BOT Chain explorer"]
+  R -->|latest heartbeat, tx, block| FE
+  FE -->|Open transaction| E
 ```
 
-## Local development
+## Smart Contract
+
+The vault contract is in `contracts/AgentVault.sol`.
+
+It enforces:
+
+- owner-only configuration
+- allowed agent addresses
+- allowed action IDs
+- daily spend limits
+- event receipts for agent execution
+
+Current BOT testnet deployment:
+
+```txt
+Vault: 0xacACe949cdf6f2202F2c510d5D0674af97C11b87
+Agent: 0xe5ABF60A6855048fEd12938aA6C699c86C09b915
+```
+
+## Local Setup
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Production build
+Use `.env.example` for local environment values.
 
-```bash
-npm run build
-```
+## Guided Vault Setup
 
-## Deployment
-
-Vercel:
-
-```bash
-vercel --prod
-```
-
-GitHub:
-
-```bash
-git init
-git add .
-git commit -m "Initial AgentVault frontend"
-gh repo create agent-vault --public --source=. --remote=origin --push
-```
-
-## Contract path
-
-The included `contracts/AgentVault.sol` enforces:
-
-- owner address
-- agent allowlist
-- daily spend limit
-- allowed protocol selectors or target addresses
-- event emission for every proposal and execution
-
-### Simple setup
-
-Use the guided setup command first. It creates fresh testnet-only deployer and agent wallets locally in `.env`, prints the addresses to fund, checks BOT Chain testnet balances, deploys the vault after both wallets have BOT, and saves the deployed `VAULT_ADDRESS`.
+This creates fresh testnet-only deployer and agent wallets, prints the public addresses to fund, deploys the vault when both have BOT, and saves the vault address locally.
 
 ```bash
 npm run setup:agentvault
 ```
 
-If it says the wallets need funds, send BOT testnet tokens to both printed addresses and run the same command again:
+Never commit `.env` or paste private keys into chat.
 
-```bash
-npm run setup:agentvault
-```
-
-Do not paste funded private keys into chat. The safe path is to let the script create local testnet wallets, fund only those addresses, and keep `.env` private.
-
-Manual deployment is still available:
-
-```bash
-DEPLOYER_PRIVATE_KEY=0x... AGENT_ADDRESS=0x... npm run deploy:vault
-```
-
-## Background agent
-
-The worker in `scripts/agent-worker.mjs` lets agents act after the user disconnects. It runs outside the browser, signs with `AGENT_PRIVATE_KEY`, calls `executeProof(...)` on the deployed vault, and emits an explorer-visible `AgentExecution` event.
+## Hosted Agent
 
 Run locally:
 
@@ -109,10 +93,42 @@ Run locally:
 npm run agent:worker
 ```
 
-Run through GitHub Actions:
+Production worker:
 
-1. Add repository secrets `AGENT_PRIVATE_KEY` and `VAULT_ADDRESS`.
-2. Trigger **AgentVault autonomous worker** manually, or let the 15-minute schedule run.
-3. Verify activity from the latest tx hash / vault events on `https://scan.bohr.life`.
+```txt
+https://agent-vault-1.onrender.com/status
+```
 
-The frontend reads the hosted worker status from `VITE_AGENT_STATUS_URL`, so users can monitor the latest agent transaction, block, vault, and explorer link inside the app.
+The worker submits a new agent execution roughly every 60 seconds, depending on RPC and hosting latency.
+
+## Production Build
+
+```bash
+npm run build
+```
+
+## Deploy
+
+Frontend:
+
+```bash
+vercel --prod
+```
+
+Worker:
+
+```txt
+Build command: npm install
+Start command: npm run agent:worker
+```
+
+Required worker environment variables:
+
+```txt
+BOT_TESTNET_RPC_URL=https://rpc.bohr.life
+BOT_TESTNET_EXPLORER_URL=https://scan.bohr.life
+AGENT_PRIVATE_KEY=...
+VAULT_ADDRESS=...
+AGENT_INTERVAL_MS=60000
+AGENT_ACTION_AMOUNT_BOT=0
+```
