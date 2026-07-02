@@ -531,7 +531,7 @@ input[type="range"] {
   place-items: center;
   border: 1px solid rgba(215, 255, 105, 0.4);
   border-radius: 50%;
-  background: conic-gradient(var(--citron) 0 45%, rgba(255, 255, 255, 0.08) 45% 100%);
+  background: conic-gradient(var(--citron) 0 var(--limit-progress), rgba(255, 255, 255, 0.08) var(--limit-progress) 100%);
   color: #11150f;
   box-shadow: inset 0 0 0 24px #141914;
 }
@@ -547,7 +547,8 @@ input[type="range"] {
 }
 
 .toggle,
-.roleRow {
+.roleRow,
+.amountField {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -555,6 +556,55 @@ input[type="range"] {
   padding: 14px 0;
   border-bottom: 1px solid var(--line);
   text-transform: capitalize;
+}
+
+.roleRow {
+  width: 100%;
+  color: var(--text);
+  border-right: 0;
+  border-left: 0;
+  border-top: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.roleRow:hover,
+.roleRow.selected {
+  color: var(--citron);
+  border-bottom-color: rgba(215, 255, 105, 0.42);
+}
+
+.roleRow.selected small {
+  color: var(--citron);
+}
+
+.actionPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.amountField {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.amountField input {
+  width: 86px;
+  color: var(--text);
+  border: 1px solid rgba(241, 238, 226, 0.18);
+  border-radius: 8px;
+  background: rgba(12, 15, 13, 0.62);
+  padding: 8px 10px;
+}
+
+.amountField small {
+  color: var(--muted);
 }
 
 .toggle input {
@@ -598,6 +648,12 @@ input[type="range"] {
 
 .reviewMini p {
   font-size: 15px;
+}
+
+.panelNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .review {
@@ -755,13 +811,18 @@ input[type="range"] {
 .auditEvent {
   position: relative;
   display: grid;
-  grid-template-columns: 70px minmax(180px, 1fr) 110px 110px 112px;
+  grid-template-columns: 70px minmax(180px, 1fr) 110px 110px 112px 92px;
   gap: 14px;
   align-items: center;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
+}
+
+.auditEvent.selected {
+  border-color: rgba(215, 255, 105, 0.52);
+  background: rgba(215, 255, 105, 0.07);
 }
 
 .auditEvent::before {
@@ -777,6 +838,10 @@ input[type="range"] {
 .auditEvent p {
   margin: 4px 0 0;
   font-size: 14px;
+}
+
+.auditEvent .button {
+  min-width: 84px;
 }
 
 code {
@@ -826,6 +891,10 @@ code {
   flex: 1;
   border-radius: 8px 8px 0 0;
   background: linear-gradient(180deg, var(--citron), rgba(122, 168, 155, 0.16));
+}
+
+.opsPanel .panelNote {
+  grid-column: 1 / -1;
 }
 
 .execution {
@@ -1026,7 +1095,8 @@ footer a {
 
   .auditEvent small,
   .auditEvent .status,
-  .auditEvent code {
+  .auditEvent code,
+  .auditEvent .button {
     grid-column: 2;
   }
 }
