@@ -176,12 +176,6 @@ function formatBalance(hexBalance) {
   return `${whole}.${fraction}`;
 }
 
-function utf8ToHex(value) {
-  return `0x${Array.from(new TextEncoder().encode(value))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')}`;
-}
-
 function normalizeAgentStatus(status) {
   const proof = String(status?.proof || '')
     .replace('Background agent', 'Hosted agent')
@@ -537,23 +531,6 @@ function App() {
         return;
       }
       const from = wallet.address || (await requestWallet('eth_accounts'))[0];
-      const payload = {
-        app: 'AgentVault',
-        network: 'BOT Chain Testnet',
-        agent: selectedProposal.agent,
-        action: `${selectedProposal.protocol}_${selectedProposal.action}`.toUpperCase().replaceAll(' ', '_'),
-        requestedAmount: `${selectedProposal.amount} BOT`,
-        route: selectedProposal.route,
-        policy: {
-          dailyLimit: `${dailyLimit} BOT`,
-          swapAllowed: policies.swap,
-          bridgeAllowed: policies.bridge,
-          transferAllowed: policies.transfer,
-          stakeAllowed: policies.stake,
-          emergencyPause: policies.emergencyPause,
-        },
-        createdAt: new Date().toISOString(),
-      };
       if (!policies[selectedProposal.policyKey] || policies.emergencyPause || dailyLimit < selectedProposal.amount) {
         setTx({ hash: '', status: `Blocked by policy. Enable ${selectedProposal.action.toLowerCase()}, resume vault, and keep the daily limit at ${selectedProposal.amount} BOT or higher.`, explorer: '' });
         return;
@@ -562,10 +539,9 @@ function App() {
         from,
         to: from,
         value: '0x0',
-        data: utf8ToHex(JSON.stringify(payload)),
       }]);
       const explorer = `${TESTNET.explorerUrl.replace(/\/$/, '')}/tx/${hash}`;
-      setTx({ hash, status: 'Submitted to BOT testnet', explorer });
+      setTx({ hash, status: 'Owner wallet tx submitted to BOT testnet', explorer });
       setProposalStatus('completed');
       for (let index = 0; index < 18; index += 1) {
         await new Promise((resolve) => setTimeout(resolve, 3500));
