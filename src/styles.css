@@ -295,14 +295,21 @@ input:focus-visible {
 
 .panel,
 .proof,
+.marketingFeature,
+.flowStep,
+.useCaseCard,
 .docCard,
 .auditEvent,
-.dashboardPreview {
+.dashboardPreview,
+.marketingVisual {
   transition: transform 0.24s ease, border-color 0.24s ease, background 0.24s ease, box-shadow 0.24s ease;
 }
 
 .panel:hover,
 .proof:hover,
+.marketingFeature:hover,
+.flowStep:hover,
+.useCaseCard:hover,
 .docCard:hover,
 .auditEvent:hover {
   transform: translateY(-4px);
@@ -354,6 +361,7 @@ input:focus-visible {
 }
 
 .dashboardPreview,
+.marketingVisual,
 .panel,
 .reviewPanel,
 .opsPanel,
@@ -380,6 +388,302 @@ input:focus-visible {
   border: 1px solid rgba(215, 255, 105, 0.24);
   border-radius: 8px;
   background: rgba(215, 255, 105, 0.03);
+}
+
+.marketingVisual {
+  z-index: 1;
+  align-self: center;
+  min-height: 610px;
+  padding: clamp(18px, 3vw, 34px);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(215, 255, 105, 0.1), transparent 34%),
+    linear-gradient(145deg, rgba(238, 236, 226, 0.12), rgba(238, 236, 226, 0.04));
+}
+
+.marketingVisual::before {
+  position: absolute;
+  inset: 12% -10% auto auto;
+  width: 78%;
+  aspect-ratio: 1;
+  content: "";
+  border: 1px solid rgba(215, 255, 105, 0.22);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(215, 255, 105, 0.16), transparent 64%);
+}
+
+.visualTopline,
+.visualLedger span,
+.receiptCard {
+  position: relative;
+  z-index: 1;
+}
+
+.visualTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 30px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.visualTopline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--citron);
+}
+
+.receiptStack {
+  position: relative;
+  min-height: 330px;
+}
+
+.receiptCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(12, 15, 13, 0.72);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32);
+}
+
+.receiptCard span,
+.receiptCard p {
+  color: var(--muted);
+}
+
+.receiptCard strong {
+  display: block;
+  color: var(--text);
+  font-weight: 560;
+}
+
+.mainReceipt {
+  width: min(520px, 100%);
+  min-height: 218px;
+  padding: 30px;
+}
+
+.mainReceipt strong {
+  max-width: 430px;
+  margin: 28px 0 16px;
+  font-size: clamp(32px, 4.8vw, 58px);
+  line-height: 0.96;
+}
+
+.gasReceipt,
+.scoreReceipt {
+  position: absolute;
+  right: 0;
+  width: min(240px, 48%);
+  padding: 20px;
+}
+
+.gasReceipt {
+  top: 150px;
+}
+
+.scoreReceipt {
+  top: 238px;
+  right: 118px;
+}
+
+.gasReceipt svg,
+.scoreReceipt svg {
+  color: var(--citron);
+  margin-bottom: 18px;
+}
+
+.gasReceipt strong,
+.scoreReceipt strong {
+  margin: 8px 0 2px;
+  font-size: 30px;
+}
+
+.visualLedger {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.visualLedger span {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.visualLedger i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--citron);
+}
+
+.visualLedger strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.visualLedger small {
+  color: var(--muted);
+}
+
+.marketingProof {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(440px, 1.12fr);
+  gap: clamp(32px, 7vw, 92px);
+  align-items: end;
+  padding-left: clamp(54px, 9vw, 128px);
+}
+
+.proofStatement h2 {
+  max-width: 720px;
+}
+
+.proofStatement p:not(.eyebrow) {
+  max-width: 560px;
+}
+
+.marketingFeatureGrid,
+.useCaseGrid,
+.showcaseMetrics {
+  display: grid;
+  gap: 14px;
+}
+
+.marketingFeatureGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.marketingFeature,
+.flowStep,
+.useCaseCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(238, 236, 226, 0.1), rgba(238, 236, 226, 0.035));
+}
+
+.marketingFeature {
+  min-height: 260px;
+  padding: 24px;
+}
+
+.marketingFeature svg {
+  color: var(--citron);
+}
+
+.marketingFeature h3 {
+  margin-top: 66px;
+}
+
+.marketingFeature p,
+.flowStep p,
+.useCaseCard p {
+  font-size: 15px;
+}
+
+.marketingShowcase {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(28px, 6vw, 82px);
+  align-items: center;
+}
+
+.showcaseImage {
+  min-height: 560px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(12, 15, 13, 0.12), rgba(12, 15, 13, 0.82)),
+    url("/design/review.png") center / cover;
+  box-shadow: var(--shadow);
+}
+
+.showcaseCopy {
+  max-width: 620px;
+}
+
+.showcaseMetrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 28px 0 24px;
+}
+
+.marketingFlow {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.flowRail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.flowStep {
+  min-height: 300px;
+  padding: 26px;
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.flowStep:last-child {
+  border-right: 0;
+}
+
+.flowStep span {
+  color: var(--citron);
+  font-size: 13px;
+}
+
+.flowStep h3 {
+  margin: 104px 0 12px;
+  font-size: 24px;
+}
+
+.marketingUseCases {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.3fr);
+  gap: clamp(28px, 6vw, 78px);
+  align-items: start;
+}
+
+.useCaseHeader {
+  position: sticky;
+  top: 120px;
+}
+
+.useCaseGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.useCaseCard {
+  min-height: 330px;
+  padding: 24px;
+}
+
+.useCaseCard span {
+  display: block;
+  width: 100%;
+  height: 118px;
+  margin-bottom: 52px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(215, 255, 105, 0.68), transparent 58%),
+    linear-gradient(145deg, rgba(122, 168, 155, 0.28), rgba(238, 236, 226, 0.06));
 }
 
 .panelTop {
@@ -1580,18 +1884,40 @@ footer a {
 
   .hero,
   .review,
-  .execution {
+  .execution,
+  .marketingProof,
+  .marketingShowcase,
+  .marketingUseCases {
     grid-template-columns: 1fr;
   }
 
-  .dashboardPreview {
+  .dashboardPreview,
+  .marketingVisual {
     transform: none;
   }
 
   .proofGrid,
   .docsGrid,
-  .pricingGrid {
+  .pricingGrid,
+  .marketingFeatureGrid,
+  .useCaseGrid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .flowRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .flowStep:nth-child(2) {
+    border-right: 0;
+  }
+
+  .flowStep:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .useCaseHeader {
+    position: static;
   }
 
   .bento,
@@ -1651,6 +1977,10 @@ footer a {
 
   .previewGrid,
   .proofGrid,
+  .marketingFeatureGrid,
+  .flowRail,
+  .useCaseGrid,
+  .showcaseMetrics,
   .bento,
   .opsPanel,
   .pricingGrid,
@@ -1705,6 +2035,57 @@ footer a {
 
   .rail {
     display: none;
+  }
+
+  .marketingVisual {
+    min-height: auto;
+  }
+
+  .receiptStack {
+    min-height: auto;
+  }
+
+  .gasReceipt,
+  .scoreReceipt {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .mainReceipt strong {
+    font-size: 34px;
+  }
+
+  .visualLedger span {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+
+  .visualLedger small {
+    grid-column: 2;
+  }
+
+  .marketingProof {
+    padding-left: 16px;
+  }
+
+  .showcaseImage {
+    min-height: 360px;
+  }
+
+  .flowStep {
+    min-height: 240px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .flowStep:last-child {
+    border-bottom: 0;
+  }
+
+  .flowStep h3 {
+    margin-top: 72px;
   }
 
   .trust {

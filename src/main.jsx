@@ -151,6 +151,37 @@ const docs = [
   },
 ];
 
+const marketingFeatures = [
+  {
+    icon: Shield,
+    title: 'Policy-first custody',
+    body: 'Owners keep control while agents execute only approved actions, limits, targets, and routes.',
+  },
+  {
+    icon: Activity,
+    title: 'Public execution proof',
+    body: 'Every confirmed action is indexed with block, hash, agent wallet, and explorer receipt.',
+  },
+  {
+    icon: Gauge,
+    title: 'Operator health',
+    body: 'Gas, heartbeat, vault code, and transaction history roll into a visible agent score.',
+  },
+];
+
+const marketingFlow = [
+  ['01', 'Create a vault', 'Deploy an owner-controlled AgentVault on BOT Chain testnet.'],
+  ['02', 'Choose policy', 'Pick Trader, Bridge Guardian, Rewards Operator, or DAO Ops.'],
+  ['03', 'Approve intent', 'Sign once for the policy boundary the agent must obey.'],
+  ['04', 'Watch receipts', 'Track live autonomous executions without keeping a wallet connected.'],
+];
+
+const marketingUseCases = [
+  ['DAO treasury', 'Let approved agents rebalance and route funds within spend limits.'],
+  ['DePIN rewards', 'Claim rewards, refill operators, and prove each payout path.'],
+  ['Protocol ops', 'Run testnet swap and bridge flows with public activity links.'],
+];
+
 const auditTemplates = [
   {
     type: 'Swap proposal',
@@ -885,9 +916,9 @@ function App() {
           AgentVault
         </a>
         <div className="navLinks">
-          <a href="#product">Product</a>
-          <a href="#policies">Policies</a>
-          <a href="#security">Security</a>
+          <a href="#why">Why</a>
+          <a href="#flow">Flow</a>
+          <a href="#product">Live app</a>
           <a href="#docs">Docs</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
         </div>
@@ -906,23 +937,94 @@ function App() {
 
       <section id="hero" className="section hero imageHero">
         <div className="heroCopy">
-          <p className="eyebrow">BOT Chain AI Treasury</p>
-          <h1>Safe wallets for autonomous agents</h1>
-          <p>Policy-bound treasuries for AI agents that need to swap, bridge, claim rewards, and prove every move.</p>
+          <p className="eyebrow">AgentVault on BOT Chain</p>
+          <h1>Autonomous treasury work, visibly controlled.</h1>
+          <p>AgentVault gives AI operators a policy-bound vault for swaps, bridge actions, rewards, and treasury tasks, with every execution backed by an on-chain receipt.</p>
           <div className="actions">
-            <button className="button primary" onClick={prepareVault}>
-              <Play size={17} />
-              {vaultStatus}
-            </button>
-            <a className="textLink" href="#review">Execute agent flow <ArrowRight size={15} /></a>
+            <a className="button primary" href="#product"><Play size={17} />Open live app</a>
+            <a className="button outline" href={agentStatus.lastExplorerUrl || AGENT_STATUS_URL} target="_blank" rel="noreferrer">View proof <ExternalLink size={15} /></a>
+            <a className="textLink" href="#flow">See the flow <ArrowRight size={15} /></a>
           </div>
           {wallet.error && <p className="notice dangerText">{wallet.error}</p>}
         </div>
-        <DashboardPreview wallet={wallet} configured={configured} vaultStatus={vaultStatus} dailyLimit={dailyLimit} selectedProposal={selectedProposal} />
+        <MarketingVisual
+          agentStatus={agentStatus}
+          gasSnapshot={gasSnapshot}
+          activityFeed={activityFeed}
+          vaultSnapshot={vaultSnapshot}
+        />
+      </section>
+
+      <section className="section marketingProof" id="why">
+        <aside className="rail">Dossier 01 / live proof layer</aside>
+        <div className="proofStatement">
+          <p className="eyebrow">What it is</p>
+          <h2>A vault for agents that need permission, not custody.</h2>
+          <p>AgentVault turns autonomous execution into a controlled operating model: define the boundaries, let the worker run, then verify every action from the dashboard or explorer.</p>
+        </div>
+        <div className="marketingFeatureGrid">
+          {marketingFeatures.map(({ icon: Icon, title, body }) => (
+            <article className="marketingFeature" key={title}>
+              <Icon size={24} />
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section marketingShowcase">
+        <div className="showcaseImage" aria-hidden="true" />
+        <div className="showcaseCopy">
+          <p className="eyebrow">Built for judges and operators</p>
+          <h2>The proof does not depend on the browser wallet.</h2>
+          <p>The hosted worker signs from the agent wallet, the vault enforces policy, and the app indexes confirmed transactions so anyone can inspect the activity later.</p>
+          <div className="showcaseMetrics">
+            <Metric label="Agent score" value={`${agentScore}/100`} />
+            <Metric label="Indexed receipts" value={`${activityFeed.length || agentStatus.txCount || 0}`} />
+            <Metric label="Gas state" value={gasSnapshot.status} />
+          </div>
+          <a className="textLink" href="#audit">Open activity dossier <ArrowRight size={15} /></a>
+        </div>
+      </section>
+
+      <section className="section marketingFlow" id="flow">
+        <div className="sectionHead">
+          <div>
+            <p className="eyebrow">How it works</p>
+            <h2>Four steps from policy to receipt.</h2>
+          </div>
+          <a className="button outline" href="#product"><Rocket size={17} />Create vault</a>
+        </div>
+        <div className="flowRail">
+          {marketingFlow.map(([step, title, body]) => (
+            <article className="flowStep" key={step}>
+              <span>{step}</span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section marketingUseCases">
+        <div className="useCaseHeader">
+          <p className="eyebrow">Where it fits</p>
+          <h2>For teams that want agent speed without treasury chaos.</h2>
+        </div>
+        <div className="useCaseGrid">
+          {marketingUseCases.map(([title, body]) => (
+            <article className="useCaseCard" key={title}>
+              <span />
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="section trust" id="security">
-        <aside className="rail">Dossier 01 / policy first execution</aside>
+        <aside className="rail">Dossier 02 / policy first execution</aside>
         <div className="centerCopy">
           <p className="eyebrow">Live Readiness</p>
           <h2>Built for BOT Chain execution with visible receipts</h2>
@@ -1381,6 +1483,52 @@ function App() {
         </footer>
       </section>
     </main>
+  );
+}
+
+function MarketingVisual({ agentStatus, gasSnapshot, activityFeed, vaultSnapshot }) {
+  const latestEvent = activityFeed[0];
+  const latestHash = latestEvent?.transactionHash || agentStatus.lastTxHash;
+  const activeLabel = agentStatus.status === 'active' ? 'Agent live' : 'Agent watch';
+
+  return (
+    <div className="marketingVisual" aria-label="AgentVault live proof preview">
+      <div className="visualTopline">
+        <span><Activity size={15} />{activeLabel}</span>
+        <code>{latestHash ? shortAddress(latestHash) : 'waiting for tx'}</code>
+      </div>
+      <div className="receiptStack">
+        <article className="receiptCard mainReceipt">
+          <span>Confirmed execution</span>
+          <strong>{latestEvent?.actionLabel || 'Policy execution receipt'}</strong>
+          <p>{latestEvent?.blockNumber ? `Block ${latestEvent.blockNumber}` : 'Indexed from BOT Chain testnet'}</p>
+        </article>
+        <article className="receiptCard gasReceipt">
+          <Fuel size={18} />
+          <span>Agent gas</span>
+          <strong>{gasSnapshot.balanceBot} BOT</strong>
+          <p>{gasSnapshot.status}</p>
+        </article>
+        <article className="receiptCard scoreReceipt">
+          <Gauge size={18} />
+          <span>Agent score</span>
+          <strong>{vaultSnapshot?.agentScore || agentStatus.agentScore || 100}</strong>
+          <p>verifiable uptime</p>
+        </article>
+      </div>
+      <div className="visualLedger">
+        {[0, 1, 2].map((index) => {
+          const event = activityFeed[index];
+          return (
+            <span key={event?.executionId || index}>
+              <i />
+              <strong>{event?.actionLabel || 'Vault policy'}</strong>
+              <small>{event?.blockNumber ? `#${event.blockNumber}` : 'pending index'}</small>
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
