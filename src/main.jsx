@@ -973,21 +973,6 @@ function App() {
         </div>
       </section>
 
-      <section className="section marketingShowcase">
-        <div className="showcaseImage" aria-hidden="true" />
-        <div className="showcaseCopy">
-          <p className="eyebrow">Built for judges and operators</p>
-          <h2>The proof does not depend on the browser wallet.</h2>
-          <p>The hosted worker signs from the agent wallet, the vault enforces policy, and the app indexes confirmed transactions so anyone can inspect the activity later.</p>
-          <div className="showcaseMetrics">
-            <Metric label="Agent score" value={`${agentScore}/100`} />
-            <Metric label="Indexed receipts" value={`${activityFeed.length || agentStatus.txCount || 0}`} />
-            <Metric label="Gas state" value={gasSnapshot.status} />
-          </div>
-          <a className="textLink" href="#audit">Open activity dossier <ArrowRight size={15} /></a>
-        </div>
-      </section>
-
       <section className="section marketingFlow" id="flow">
         <div className="sectionHead">
           <div>
@@ -1034,6 +1019,25 @@ function App() {
           <Proof icon={Shield} title="BOT testnet active" detail={`Chain 968 (${TESTNET.chainId})`} />
           <Proof icon={GitBranch} title="Bridge-ready policy" detail={policies.bridge ? 'Allowlisted' : 'Disabled'} />
           <Proof icon={RefreshCcw} title={`${selectedProposal.protocol} controls`} detail={policies[selectedProposal.policyKey] ? 'Policy enabled' : 'Review only'} />
+        </div>
+      </section>
+
+      <section className="section marketingHandoff">
+        <div className="handoffCopy">
+          <p className="eyebrow">Enter the live app</p>
+          <h2>Connect, deploy, approve, and monitor from one console.</h2>
+          <p>The marketing page ends here. The next section is the working AgentVault application with the live vault, deployment wizard, alerts, policies, and indexed on-chain activity.</p>
+        </div>
+        <div className="handoffPanel">
+          <div className="showcaseMetrics">
+            <Metric label="Agent score" value={`${agentScore}/100`} />
+            <Metric label="Indexed receipts" value={`${activityFeed.length || agentStatus.txCount || 0}`} />
+            <Metric label="Gas state" value={gasSnapshot.status} />
+          </div>
+          <div className="actions">
+            <a className="button primary" href="#product"><Rocket size={17} />Launch main app</a>
+            <a className="button outline" href="#audit">View activity <ArrowRight size={15} /></a>
+          </div>
         </div>
       </section>
 

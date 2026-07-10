@@ -590,27 +590,6 @@ input:focus-visible {
   font-size: 15px;
 }
 
-.marketingShowcase {
-  display: grid;
-  grid-template-columns: minmax(420px, 1.05fr) minmax(0, 0.95fr);
-  gap: clamp(28px, 6vw, 82px);
-  align-items: center;
-}
-
-.showcaseImage {
-  min-height: 560px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(12, 15, 13, 0.12), rgba(12, 15, 13, 0.82)),
-    url("/design/review.png") center / cover;
-  box-shadow: var(--shadow);
-}
-
-.showcaseCopy {
-  max-width: 620px;
-}
-
 .showcaseMetrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 28px 0 24px;
@@ -684,6 +663,50 @@ input:focus-visible {
   background:
     linear-gradient(135deg, rgba(215, 255, 105, 0.68), transparent 58%),
     linear-gradient(145deg, rgba(122, 168, 155, 0.28), rgba(238, 236, 226, 0.06));
+}
+
+.marketingHandoff {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
+  gap: clamp(28px, 6vw, 76px);
+  align-items: center;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, rgba(215, 255, 105, 0.08), transparent 36%),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: auto, 42px 42px, 42px 42px;
+}
+
+.handoffCopy p:not(.eyebrow) {
+  max-width: 620px;
+}
+
+.handoffPanel {
+  position: relative;
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid rgba(215, 255, 105, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(238, 236, 226, 0.12), rgba(238, 236, 226, 0.045)),
+    rgba(12, 15, 13, 0.76);
+  box-shadow: var(--shadow);
+}
+
+.handoffPanel::before {
+  position: absolute;
+  inset: 18px 18px auto auto;
+  width: 92px;
+  height: 92px;
+  content: "";
+  border-top: 1px solid rgba(215, 255, 105, 0.5);
+  border-right: 1px solid rgba(215, 255, 105, 0.5);
+}
+
+.handoffPanel .actions {
+  position: relative;
+  z-index: 1;
 }
 
 .panelTop {
@@ -1886,8 +1909,8 @@ footer a {
   .review,
   .execution,
   .marketingProof,
-  .marketingShowcase,
-  .marketingUseCases {
+  .marketingUseCases,
+  .marketingHandoff {
     grid-template-columns: 1fr;
   }
 
@@ -2068,10 +2091,6 @@ footer a {
 
   .marketingProof {
     padding-left: 16px;
-  }
-
-  .showcaseImage {
-    min-height: 360px;
   }
 
   .flowStep {
