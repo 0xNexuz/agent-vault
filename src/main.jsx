@@ -337,6 +337,19 @@ function App() {
   const [shareStatus, setShareStatus] = useState('Copy public vault link');
   const [profileName, setProfileName] = useState(() => localStorage.getItem('agentvault-profile-name') || 'Vault Operator');
   const [profileStatus, setProfileStatus] = useState('Profile is stored on this device.');
+  const [pageView, setPageView] = useState(() => (window.location.hash === '#docs' ? 'docs' : 'app'));
+  const [referralStats, setReferralStats] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('agentvault-referral-stats') || 'null') || {
+        linksCopied: 0,
+        referredSessions: 0,
+        lastReferral: '',
+        lastReferralAt: '',
+      };
+    } catch {
+      return { linksCopied: 0, referredSessions: 0, lastReferral: '', lastReferralAt: '' };
+    }
+  });
   const lastNotifiedTx = useRef('');
 
   const connected = Boolean(wallet.address);
@@ -360,6 +373,15 @@ function App() {
   const referralSource = query.get('ref') || '';
   const requestedVaultAddress = query.get('vault') || '';
   const publicVaultAddress = requestedVaultAddress || deployment.address || vaultSnapshot?.vaultAddress || agentStatus.vaultAddress;
+  const referralCode = wallet.address || agentStatus.agentAddress || profileName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'agentvault';
+  const referralLink = (() => {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = 'product';
+    url.searchParams.set('ref', referralCode);
+    if (publicVaultAddress) url.searchParams.set('vault', publicVaultAddress);
+    return url.toString();
+  })();
   const gasSnapshot = vaultSnapshot?.gas || agentStatus.gas || { status: 'checking', balanceBot: '0.0000', thresholdBot: '0.0500', canExecute: false };
   const agentScore = vaultSnapshot?.agentScore ?? agentStatus.agentScore ?? (agentStatus.status === 'active' ? 70 : 0);
   const operatorLevel = agentScore >= 90 ? 'Autonomous Architect' : agentScore >= 70 ? 'Vault Commander' : agentScore >= 40 ? 'Policy Operator' : 'Rookie Agent';
@@ -378,6 +400,26 @@ function App() {
     targets.forEach((target) => observer.observe(target));
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => setPageView(window.location.hash === '#docs' ? 'docs' : 'app');
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (!referralSource || referralStats.lastReferral === referralSource) return;
+    setReferralStats((current) => {
+      const next = {
+        ...current,
+        referredSessions: current.referredSessions + 1,
+        lastReferral: referralSource,
+        lastReferralAt: new Date().toISOString(),
+      };
+      localStorage.setItem('agentvault-referral-stats', JSON.stringify(next));
+      return next;
+    });
+  }, [referralSource, referralStats.lastReferral]);
 
   const refreshAgentStatus = async () => {
     if (!AGENT_STATUS_URL) return;
@@ -880,13 +922,12 @@ function App() {
   };
 
   const copyPublicVaultLink = async () => {
-    const ref = wallet.address || agentStatus.agentAddress || 'agentvault';
-    const url = new URL(window.location.href);
-    url.search = '';
-    url.hash = 'product';
-    url.searchParams.set('ref', ref);
-    if (publicVaultAddress) url.searchParams.set('vault', publicVaultAddress);
-    await navigator.clipboard.writeText(url.toString());
+    await navigator.clipboard.writeText(referralLink);
+    setReferralStats((current) => {
+      const next = { ...current, linksCopied: current.linksCopied + 1 };
+      localStorage.setItem('agentvault-referral-stats', JSON.stringify(next));
+      return next;
+    });
     setShareStatus('Public vault link copied');
     setTimeout(() => setShareStatus('Copy public vault link'), 2500);
   };
@@ -908,6 +949,89 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const openDocsPage = (event) => {
+    event?.preventDefault();
+    window.history.pushState(null, '', '#docs');
+    setPageView('docs');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openAppPage = (event, hash = '#hero') => {
+    event?.preventDefault();
+    window.history.pushState(null, '', hash);
+    setPageView('app');
+    setTimeout(() => document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth' }), 0);
+  };
+
+  if (pageView === 'docs') {
+    return (
+      <main>
+        <nav className="nav">
+          <a className="brand" href="#hero" onClick={(event) => openAppPage(event, '#hero')} aria-label="AgentVault home">
+            <span className="brandMark"><Shield size={18} /></span>
+            AgentVault
+          </a>
+          <div className="navLinks">
+            <a href="#hero" onClick={(event) => openAppPage(event, '#hero')}>Marketing</a>
+            <a href="#product" onClick={(event) => openAppPage(event, '#product')}>Live app</a>
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
+          </div>
+          <a className="button primary" href="#product" onClick={(event) => openAppPage(event, '#product')}><Rocket size={17} />Open app</a>
+        </nav>
+
+        <section className="section docsPage">
+          <div className="docsHero">
+            <p className="eyebrow">AgentVault Docs</p>
+            <h1>Build, run, and verify policy-bound agents.</h1>
+            <p>Separate product documentation for the vault contract, hosted worker, referral flow, live testnet setup, and operator dashboard.</p>
+          </div>
+          <div className="docsLayout">
+            <aside className="docsAside">
+              {['Overview', 'Vault', 'Agent Worker', 'Referrals', 'Operations'].map((item) => <a href={`#${item.toLowerCase().replace(' ', '-')}`} key={item}>{item}</a>)}
+            </aside>
+            <div className="docsArticle">
+              <section id="overview">
+                <h2>Overview</h2>
+                <p>AgentVault is an owner-controlled BOT Chain vault. Owners approve policy boundaries, while an agent wallet can execute only the actions, targets, selectors, and limits configured on-chain.</p>
+              </section>
+              <section id="vault">
+                <h2>Vault contract</h2>
+                <div className="docsGrid compactDocs">
+                  {docs.map((item, index) => (
+                    <article className="docCard" key={item.title}>
+                      <span>{String(index + 1).padStart(2, '0')}</span>
+                      <h3>{item.title}</h3>
+                      <p>{item.body}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+              <section id="agent-worker">
+                <h2>Agent worker</h2>
+                <p>The Render worker signs with the agent key, monitors gas, indexes recent AgentExecution logs, exposes health endpoints, and posts confirmed transaction data back into the app.</p>
+                <code>{AGENT_STATUS_URL}</code>
+              </section>
+              <section id="referrals">
+                <h2>Referrals</h2>
+                <p>Each operator gets a share link with a ref code and optional vault address. The current beta tracker records copied links and referred sessions in the app. A production rewards program can attach the same ref parameter to a database or contract event.</p>
+              </section>
+              <section id="operations">
+                <h2>Operations checklist</h2>
+                <ul>
+                  <li>Connect a BOT Chain wallet.</li>
+                  <li>Deploy or inspect a vault.</li>
+                  <li>Choose a policy template.</li>
+                  <li>Fund the agent wallet above the gas threshold.</li>
+                  <li>Track execution receipts in the Activity panel.</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main>
       <nav className="nav">
@@ -919,7 +1043,7 @@ function App() {
           <a href="#why">Why</a>
           <a href="#flow">Flow</a>
           <a href="#product">Live app</a>
-          <a href="#docs">Docs</a>
+          <a href="#docs" onClick={openDocsPage}>Docs</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
         </div>
         <div className="walletControls">
@@ -1052,6 +1176,7 @@ function App() {
               ['overview', 'Live vault'],
               ['deploy', 'Create vault'],
               ['alerts', 'Alerts & share'],
+              ['referrals', 'Referrals'],
             ].map(([id, label]) => (
               <button key={id} role="tab" aria-selected={productTab === id} className={productTab === id ? 'selected' : ''} onClick={() => setProductTab(id)}>{label}</button>
             ))}
@@ -1219,6 +1344,34 @@ function App() {
               <p>Invite operators and reviewers directly into this vault’s live execution record.</p>
               <button className="button primary" onClick={copyPublicVaultLink}><Copy size={16} />{shareStatus}</button>
               {referralSource && <span className="panelNote">Referred by {shortAddress(referralSource)}</span>}
+            </div>
+          </div>
+        )}
+
+        {productTab === 'referrals' && (
+          <div className="referralGrid">
+            <div className="panel referralPrimary">
+              <div className="panelTop">
+                <h3><Copy size={18} /> Referral tracker</h3>
+                <span>{connected ? 'Wallet active' : 'Profile mode'}</span>
+              </div>
+              <p>Share this link after signup. It carries your referral code and opens directly into the live AgentVault app.</p>
+              <div className="referralLinkBox">
+                <code>{referralLink}</code>
+                <button className="button primary small" onClick={copyPublicVaultLink}><Copy size={14} />Copy</button>
+              </div>
+              <div className="proofRows compact">
+                <Metric label="Your code" value={shortAddress(referralCode)} />
+                <Metric label="Links copied" value={referralStats.linksCopied} />
+                <Metric label="Referred sessions" value={referralStats.referredSessions} />
+                <Metric label="Invited by" value={referralSource ? shortAddress(referralSource) : 'Direct'} />
+              </div>
+            </div>
+            <div className="panel referralHow">
+              <FileText size={22} />
+              <h3>How tracking works</h3>
+              <p>The beta tracker reads the ref parameter, stores your copied links, and shows referred sessions for this operator profile. For mainnet rewards, the same referral code should be written to a backend or vault event.</p>
+              <a className="button outline" href="#docs" onClick={openDocsPage}><BookOpen size={16} />Open referral docs</a>
             </div>
           </div>
         )}
@@ -1438,25 +1591,6 @@ function App() {
         </div>
       </section>
 
-      <section className="section docs" id="docs">
-        <div className="sectionHead">
-          <div>
-            <p className="eyebrow">Extensive Docs</p>
-            <h2>How AgentVault works</h2>
-          </div>
-          <a className="button outline" href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={17} />GitHub</a>
-        </div>
-        <div className="docsGrid">
-          {docs.map((item, index) => (
-            <article className="docCard" key={item.title}>
-            <span>{String(index + 1).padStart(2, '0')}</span>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="section pricing imageClosing">
         <div className="centerCopy">
           <p className="eyebrow">Start Clean</p>
@@ -1475,13 +1609,13 @@ function App() {
         </div>
         <div className="actions center">
           <button className="button primary" onClick={prepareVault}><LockKeyhole size={17} />Deploy AgentVault</button>
-          <a className="button outline" href="#docs"><BookOpen size={17} />Open docs</a>
+          <a className="button outline" href="#docs" onClick={openDocsPage}><BookOpen size={17} />Open docs</a>
         </div>
         <footer>
           <strong>AgentVault</strong>
           <span>Autonomy with receipts.</span>
           <a href="#security">Security</a>
-          <a href="#docs">Docs</a>
+          <a href="#docs" onClick={openDocsPage}>Docs</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
           <a href="https://botchain.ai" target="_blank" rel="noreferrer">BOT Chain <ExternalLink size={14} /></a>
         </footer>

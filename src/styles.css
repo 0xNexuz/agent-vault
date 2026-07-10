@@ -1768,6 +1768,126 @@ code {
     linear-gradient(145deg, rgba(215, 255, 105, 0.12), rgba(238, 236, 226, 0.035));
 }
 
+.referralGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
+  gap: 16px;
+}
+
+.referralPrimary {
+  min-height: 360px;
+}
+
+.referralPrimary > p,
+.referralHow p {
+  max-width: 720px;
+}
+
+.referralLinkBox {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 24px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.referralLinkBox code {
+  overflow: hidden;
+  color: var(--citron);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referralHow {
+  display: flex;
+  min-height: 360px;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.referralHow svg {
+  color: var(--citron);
+}
+
+.referralHow .button {
+  margin-top: auto;
+}
+
+.docsPage {
+  width: min(1360px, 100%);
+}
+
+.docsHero {
+  max-width: 960px;
+  padding: clamp(36px, 7vw, 82px) 0 clamp(28px, 5vw, 62px);
+}
+
+.docsHero h1 {
+  font-size: clamp(48px, 7vw, 96px);
+}
+
+.docsLayout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: start;
+}
+
+.docsAside {
+  position: sticky;
+  top: 104px;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.docsAside a {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.docsAside a:hover {
+  color: var(--text);
+  background: rgba(215, 255, 105, 0.08);
+}
+
+.docsArticle {
+  display: grid;
+  gap: 22px;
+}
+
+.docsArticle > section {
+  padding: clamp(24px, 4vw, 42px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(238, 236, 226, 0.1), rgba(238, 236, 226, 0.035));
+}
+
+.docsArticle code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--citron);
+}
+
+.docsArticle ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.9;
+}
+
+.compactDocs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .txConsole {
   display: grid;
   gap: 14px;
@@ -1974,6 +2094,17 @@ footer a {
   .alertsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .referralGrid,
+  .docsLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .docsAside {
+    position: relative;
+    top: auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -2026,7 +2157,17 @@ footer a {
   .productGrid,
   .launchpadGrid,
   .alertsGrid,
+  .referralGrid,
   .deploySummary {
+    grid-template-columns: 1fr;
+  }
+
+  .referralLinkBox {
+    grid-template-columns: 1fr;
+  }
+
+  .docsAside,
+  .compactDocs {
     grid-template-columns: 1fr;
   }
 
