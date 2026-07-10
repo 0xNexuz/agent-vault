@@ -30,6 +30,11 @@ const contract = output.contracts['AgentVault.sol'].AgentVault;
 fs.mkdirSync(path.join(root, 'artifacts'), { recursive: true });
 fs.writeFileSync(path.join(root, 'artifacts', 'AgentVault.json'), JSON.stringify(contract, null, 2));
 
+if (process.env.COMPILE_ONLY === '1') {
+  console.log('Compiled artifacts/AgentVault.json');
+  process.exit(0);
+}
+
 if (!privateKey) {
   throw new Error('Compiled AgentVault.json. Missing DEPLOYER_PRIVATE_KEY, so deployment was not attempted.');
 }

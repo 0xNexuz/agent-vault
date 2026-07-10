@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "test": "node --test scripts/*.test.mjs",
     "preview": "vite preview --host 127.0.0.1",
+    "compile:vault": "node -e \"process.env.COMPILE_ONLY='1'; import('./scripts/deploy-vault.mjs')\"",
     "setup:agentvault": "node scripts/setup-agentvault.mjs",
     "deploy:vault": "node scripts/deploy-vault.mjs",
     "agent:worker": "node scripts/agent-worker.mjs",

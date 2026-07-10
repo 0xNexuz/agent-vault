@@ -1,33 +1,44 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  Activity,
   ArrowRight,
   BadgeCheck,
+  Bell,
   BookOpen,
   Bot,
   Check,
   ChevronRight,
   CircleDollarSign,
+  Copy,
   Download,
   ExternalLink,
   FileText,
+  Fuel,
   Github,
   GitBranch,
+  Gauge,
   LockKeyhole,
   Pause,
   Play,
+  Rocket,
   RefreshCcw,
+  Send,
   Shield,
   SlidersHorizontal,
   Sparkles,
   TerminalSquare,
+  UserRound,
   Wallet,
   X,
 } from 'lucide-react';
+import vaultArtifact from '../artifacts/AgentVault.json';
 import './styles.css';
 
 const GITHUB_URL = 'https://github.com/0xNexuz/agent-vault';
 const AGENT_STATUS_URL = import.meta.env.VITE_AGENT_STATUS_URL || 'https://agent-vault-1.onrender.com/status';
+const WORKER_BASE_URL = AGENT_STATUS_URL.replace(/\/(?:api\/)?status\/?$/, '');
+const FAUCET_URL = 'https://faucet.botchain.ai';
 const TESTNET = {
   chainId: import.meta.env.VITE_BOT_TESTNET_CHAIN_ID || '0x3c8',
   chainName: import.meta.env.VITE_BOT_TESTNET_NAME || 'BOT Chain Testnet',
@@ -35,6 +46,37 @@ const TESTNET = {
   explorerUrl: import.meta.env.VITE_BOT_TESTNET_EXPLORER_URL || 'https://scan.bohr.life',
   currencySymbol: import.meta.env.VITE_BOT_TESTNET_SYMBOL || 'BOT',
 };
+
+const VERIFIED_INTEGRATIONS = [
+  {
+    id: 'bdex-v2',
+    name: 'BDEX V2 Router',
+    address: '0xD6425a02f0845B8D99e349C34D2E7A576E177345',
+    type: 'Swap',
+    explorerUrl: 'https://scan.bohr.life/address/0xD6425a02f0845B8D99e349C34D2E7A576E177345',
+  },
+  {
+    id: 'bdex-v3',
+    name: 'BDEX V3 Router',
+    address: '0x07032d47A1b9f8460cBeE9dC17c1d3E438693929',
+    type: 'Swap',
+    explorerUrl: 'https://scan.bohr.life/address/0x07032d47A1b9f8460cBeE9dC17c1d3E438693929',
+  },
+  {
+    id: 'bridge',
+    name: 'BOT Bridge Router',
+    address: '0x6239404Aa276ba68486E2Fa40E90CDd36ff8ec3A',
+    type: 'Bridge',
+    explorerUrl: 'https://scan.bohr.life/address/0x6239404Aa276ba68486E2Fa40E90CDd36ff8ec3A',
+  },
+];
+
+const policyTemplates = [
+  { id: 'trader', name: 'Trader', description: 'BDEX swaps only, conservative daily budget.', dailyLimit: 20, policies: { swap: true, bridge: false, transfer: false, stake: false, emergencyPause: false }, actionId: 'swap' },
+  { id: 'guardian', name: 'Bridge Guardian', description: 'Bridge review with a narrow routing allowance.', dailyLimit: 12, policies: { swap: false, bridge: true, transfer: false, stake: false, emergencyPause: false }, actionId: 'bridge' },
+  { id: 'rewards', name: 'Rewards Operator', description: 'Claims and returns rewards to treasury.', dailyLimit: 8, policies: { swap: false, bridge: false, transfer: false, stake: true, emergencyPause: false }, actionId: 'claim' },
+  { id: 'dao', name: 'DAO Ops', description: 'Multi-path treasury operations with a lower cap.', dailyLimit: 15, policies: { swap: true, bridge: false, transfer: true, stake: true, emergencyPause: false }, actionId: 'transfer' },
+];
 
 const initialPolicies = {
   swap: true,
@@ -168,12 +210,34 @@ function shortAddress(address) {
   return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
 }
 
+function isEvmAddress(address) {
+  return /^0x[0-9a-fA-F]{40}$/.test(String(address || ''));
+}
+
 function formatBalance(hexBalance) {
   if (!hexBalance) return '0.0000';
   const wei = BigInt(hexBalance);
   const whole = wei / 10n ** 18n;
   const fraction = (wei % 10n ** 18n).toString().padStart(18, '0').slice(0, 4);
   return `${whole}.${fraction}`;
+}
+
+function actionPhrase(action) {
+  if (action === 'Bridge') return 'bridge funds';
+  if (action === 'Claim') return 'claim rewards';
+  return action.toLowerCase();
+}
+
+function proposalTitle(proposal) {
+  if (proposal.action === 'Bridge') return `Proposed ${proposal.protocol} route`;
+  if (proposal.action === 'Claim') return 'Proposed reward claim';
+  return `Proposed ${proposal.protocol} ${proposal.action.toLowerCase()}`;
+}
+
+function policyTitle(proposal) {
+  return proposal.protocol.toLowerCase().includes(proposal.action.toLowerCase())
+    ? proposal.protocol
+    : `${proposal.protocol} ${proposal.action}`;
 }
 
 function normalizeAgentStatus(status) {
@@ -224,12 +288,32 @@ function App() {
   const [selectedAuditType, setSelectedAuditType] = useState('Swap proposal');
   const [balanceStatus, setBalanceStatus] = useState('Connect wallet to read balance.');
   const [agentRefreshStatus, setAgentRefreshStatus] = useState('Auto-refreshes every 10 seconds.');
+  const [productTab, setProductTab] = useState('overview');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('trader');
+  const [deployForm, setDeployForm] = useState({ agentAddress: '', dailyLimit: 20 });
+  const [deployment, setDeployment] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('agentvault-deployment') || 'null') || { status: 'Ready to deploy', address: '', hash: '', explorerUrl: '' };
+    } catch {
+      return { status: 'Ready to deploy', address: '', hash: '', explorerUrl: '' };
+    }
+  });
+  const [activityFeed, setActivityFeed] = useState([]);
+  const [vaultSnapshot, setVaultSnapshot] = useState(null);
+  const [productRefreshStatus, setProductRefreshStatus] = useState('Loading indexed vault data.');
+  const [browserAlerts, setBrowserAlerts] = useState(() => localStorage.getItem('agentvault-browser-alerts') === 'on');
+  const [alertStatus, setAlertStatus] = useState('Browser alerts are off.');
+  const [shareStatus, setShareStatus] = useState('Copy public vault link');
+  const [profileName, setProfileName] = useState(() => localStorage.getItem('agentvault-profile-name') || 'Vault Operator');
+  const [profileStatus, setProfileStatus] = useState('Profile is stored on this device.');
+  const lastNotifiedTx = useRef('');
 
   const connected = Boolean(wallet.address);
   const configured = hasTestnetConfig();
   const onBotTestnet = wallet.chainId?.toLowerCase() === TESTNET.chainId.toLowerCase();
   const selectedRole = agentRoles.find((role) => role.id === selectedRoleId) || agentRoles[1];
   const selectedAction = actionOptions.find((action) => action.id === selectedActionId) || actionOptions[0];
+  const selectedTemplate = policyTemplates.find((template) => template.id === selectedTemplateId) || policyTemplates[0];
   const selectedProposal = {
     agent: selectedRole.name,
     action: selectedAction.label,
@@ -241,6 +325,13 @@ function App() {
     reason: selectedRole.description,
   };
   const dailyLimitPercent = Math.min(100, Math.max(0, (dailyLimit / 50) * 100));
+  const query = new URLSearchParams(window.location.search);
+  const referralSource = query.get('ref') || '';
+  const requestedVaultAddress = query.get('vault') || '';
+  const publicVaultAddress = requestedVaultAddress || deployment.address || vaultSnapshot?.vaultAddress || agentStatus.vaultAddress;
+  const gasSnapshot = vaultSnapshot?.gas || agentStatus.gas || { status: 'checking', balanceBot: '0.0000', thresholdBot: '0.0500', canExecute: false };
+  const agentScore = vaultSnapshot?.agentScore ?? agentStatus.agentScore ?? (agentStatus.status === 'active' ? 70 : 0);
+  const operatorLevel = agentScore >= 90 ? 'Autonomous Architect' : agentScore >= 70 ? 'Vault Commander' : agentScore >= 40 ? 'Policy Operator' : 'Rookie Agent';
 
   useEffect(() => {
     const targets = document.querySelectorAll('.section, .panel, .proof, .docCard, .priceCard, .auditEvent');
@@ -320,6 +411,45 @@ function App() {
       clearInterval(interval);
     };
   }, []);
+
+  const refreshProductData = async () => {
+    setProductRefreshStatus('Refreshing indexed vault data...');
+    const addressQuery = requestedVaultAddress && isEvmAddress(requestedVaultAddress)
+      ? `?address=${encodeURIComponent(requestedVaultAddress)}`
+      : '';
+    const [activityResult, vaultResult] = await Promise.allSettled([
+      fetch(`${WORKER_BASE_URL}/api/activity${addressQuery}`, { cache: 'no-store' }).then((response) => {
+        if (!response.ok) throw new Error(`Activity API returned ${response.status}`);
+        return response.json();
+      }),
+      fetch(`${WORKER_BASE_URL}/api/vault${addressQuery}`, { cache: 'no-store' }).then((response) => {
+        if (!response.ok) throw new Error(`Vault API returned ${response.status}`);
+        return response.json();
+      }),
+    ]);
+    if (activityResult.status === 'fulfilled') setActivityFeed(activityResult.value.events || []);
+    if (vaultResult.status === 'fulfilled') setVaultSnapshot(vaultResult.value);
+    const available = activityResult.status === 'fulfilled' || vaultResult.status === 'fulfilled';
+    setProductRefreshStatus(available ? `Indexed ${new Date().toLocaleTimeString()}` : 'Indexer is updating with the latest worker release.');
+  };
+
+  useEffect(() => {
+    refreshProductData();
+    const interval = setInterval(refreshProductData, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const newest = activityFeed[0];
+    if (!browserAlerts || !newest?.transactionHash || newest.transactionHash === lastNotifiedTx.current) return;
+    lastNotifiedTx.current = newest.transactionHash;
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('AgentVault execution confirmed', {
+        body: `${Number(newest.amountBot || 0).toFixed(2)} BOT policy execution in block ${newest.blockNumber}.`,
+        icon: '/favicon.svg',
+      });
+    }
+  }, [activityFeed, browserAlerts]);
 
   useEffect(() => {
     if (!window.ethereum) return;
@@ -401,7 +531,7 @@ function App() {
         agent: agentStatus.agentAddress ? shortAddress(agentStatus.agentAddress) : 'Hosted worker',
         protocol: 'AgentVault',
         risk: 'low',
-        status: agentStatus.status === 'active' ? 'completed' : 'review',
+        status: agentStatus.lastBlockNumber ? 'completed' : 'review',
         hash: `${agentStatus.lastTxHash.slice(0, 10)}...${agentStatus.lastTxHash.slice(-6)}`,
         reason: `Hosted worker executed through the vault${agentStatus.lastBlockNumber ? ` in block ${agentStatus.lastBlockNumber}` : ''}.`,
         time: agentStatus.lastRunAt ? new Date(agentStatus.lastRunAt).toLocaleTimeString() : 'Live',
@@ -631,6 +761,112 @@ function App() {
     }
   };
 
+  const applyPolicyTemplate = (template) => {
+    const action = actionOptions.find((item) => item.id === template.actionId) || actionOptions[0];
+    setSelectedTemplateId(template.id);
+    setPolicies(template.policies);
+    setDailyLimit(template.dailyLimit);
+    setDeployForm((current) => ({ ...current, dailyLimit: template.dailyLimit }));
+    selectAction(action);
+    setProposalStatus(template.policies[action.policyKey] ? 'ready' : 'blocked');
+  };
+
+  const deployNewVault = async () => {
+    try {
+      const { ethers } = await import('ethers');
+      if (!window.ethereum) throw new Error('Install BO Wallet or an EVM-compatible wallet first.');
+      setDeployment({ status: 'Checking wallet and network...', address: '', hash: '', explorerUrl: '' });
+      const accounts = await requestWallet('eth_requestAccounts');
+      let chainId = await requestWallet('eth_chainId');
+      if (chainId.toLowerCase() !== TESTNET.chainId.toLowerCase()) {
+        await switchToTestnet();
+        chainId = await requestWallet('eth_chainId');
+      }
+      if (chainId.toLowerCase() !== TESTNET.chainId.toLowerCase()) throw new Error('Switch the wallet to BOT Chain testnet and retry.');
+      const agentAddress = deployForm.agentAddress || agentStatus.agentAddress || accounts[0];
+      if (!ethers.isAddress(agentAddress)) throw new Error('Enter a valid agent wallet address.');
+      const limit = Number(deployForm.dailyLimit);
+      if (!Number.isFinite(limit) || limit <= 0) throw new Error('Daily limit must be greater than zero.');
+
+      const browserProvider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await browserProvider.getSigner();
+      const bytecode = vaultArtifact.evm?.bytecode?.object;
+      if (!bytecode) throw new Error('Vault deployment bytecode is unavailable.');
+      const factory = new ethers.ContractFactory(vaultArtifact.abi, bytecode, signer);
+      const contract = await factory.deploy(agentAddress, ethers.parseEther(String(limit)));
+      const deploymentTx = contract.deploymentTransaction();
+      setDeployment({
+        status: 'Deployment submitted. Waiting for confirmation...',
+        address: '',
+        hash: deploymentTx?.hash || '',
+        explorerUrl: deploymentTx?.hash ? `${TESTNET.explorerUrl}/tx/${deploymentTx.hash}` : '',
+      });
+      await contract.waitForDeployment();
+      const address = await contract.getAddress();
+
+      if (selectedTemplate.id === 'trader') {
+        setDeployment((current) => ({ ...current, address, status: 'Vault confirmed. Configuring verified BDEX V2 policy...' }));
+        const selector = ethers.id('swapExactETHForTokens(uint256,address[],address,uint256)').slice(0, 10);
+        const configTx = await contract.configureAction(
+          ethers.id('BDEX_SWAP_V2'),
+          VERIFIED_INTEGRATIONS[0].address,
+          selector,
+          true,
+        );
+        await configTx.wait();
+      }
+
+      const nextDeployment = {
+        status: selectedTemplate.id === 'trader' ? 'Vault deployed with verified BDEX V2 policy' : 'Vault deployed on BOT Chain testnet',
+        address,
+        hash: deploymentTx?.hash || '',
+        explorerUrl: `${TESTNET.explorerUrl}/address/${address}`,
+      };
+      setDeployment(nextDeployment);
+      localStorage.setItem('agentvault-deployment', JSON.stringify(nextDeployment));
+      setWallet({ address: accounts[0], chainId, balance: wallet.balance, status: 'Connected', error: '' });
+    } catch (error) {
+      setDeployment((current) => ({ ...current, status: error.shortMessage || error.message || 'Vault deployment failed.' }));
+    }
+  };
+
+  const toggleBrowserAlerts = async () => {
+    if (!('Notification' in window)) {
+      setAlertStatus('This browser does not support system notifications.');
+      return;
+    }
+    if (browserAlerts) {
+      setBrowserAlerts(false);
+      localStorage.setItem('agentvault-browser-alerts', 'off');
+      setAlertStatus('Browser alerts are off.');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    const enabled = permission === 'granted';
+    setBrowserAlerts(enabled);
+    localStorage.setItem('agentvault-browser-alerts', enabled ? 'on' : 'off');
+    setAlertStatus(enabled ? 'Browser alerts are active for new indexed executions.' : 'Notification permission was not granted.');
+  };
+
+  const copyPublicVaultLink = async () => {
+    const ref = wallet.address || agentStatus.agentAddress || 'agentvault';
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = 'product';
+    url.searchParams.set('ref', ref);
+    if (publicVaultAddress) url.searchParams.set('vault', publicVaultAddress);
+    await navigator.clipboard.writeText(url.toString());
+    setShareStatus('Public vault link copied');
+    setTimeout(() => setShareStatus('Copy public vault link'), 2500);
+  };
+
+  const saveProfile = () => {
+    const cleanName = profileName.trim().slice(0, 40) || 'Vault Operator';
+    setProfileName(cleanName);
+    localStorage.setItem('agentvault-profile-name', cleanName);
+    setProfileStatus('Operator profile saved.');
+  };
+
   const exportAudit = () => {
     const blob = new Blob([JSON.stringify({ wallet, policies, dailyLimit, selectedProposal, signature, bundleSignature, events: auditEvents }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -649,7 +885,8 @@ function App() {
           AgentVault
         </a>
         <div className="navLinks">
-          <a href="#policies">Product</a>
+          <a href="#product">Product</a>
+          <a href="#policies">Policies</a>
           <a href="#security">Security</a>
           <a href="#docs">Docs</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={16} /> GitHub</a>
@@ -698,6 +935,189 @@ function App() {
         </div>
       </section>
 
+      <section className="section productHub" id="product">
+        <div className="sectionHead">
+          <div>
+            <p className="eyebrow">Operator Console</p>
+            <h2>Run a vault people can verify</h2>
+          </div>
+          <div className="segmented" role="tablist" aria-label="AgentVault product views">
+            {[
+              ['overview', 'Live vault'],
+              ['deploy', 'Create vault'],
+              ['alerts', 'Alerts & share'],
+            ].map(([id, label]) => (
+              <button key={id} role="tab" aria-selected={productTab === id} className={productTab === id ? 'selected' : ''} onClick={() => setProductTab(id)}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        {productTab === 'overview' && (
+          <div className="productGrid">
+            <div className="panel scorePanel">
+              <div className="panelTop">
+                <h3><Gauge size={18} /> Agent score</h3>
+                <StatusLabel status={agentStatus.status} />
+              </div>
+              <div className="profileLine">
+                <span><UserRound size={18} /></span>
+                <div><strong>{profileName}</strong><small>{operatorLevel}</small></div>
+              </div>
+              <div className="scoreDial" style={{ '--score-progress': `${agentScore}%` }}>
+                <strong>{agentScore}</strong>
+                <span>/ 100</span>
+              </div>
+              <p>Score combines heartbeat, vault bytecode, indexed executions, and gas readiness.</p>
+            </div>
+
+            <div className="panel gasPanel">
+              <div className="panelTop">
+                <h3><Fuel size={18} /> Agent gas</h3>
+                <StatusLabel status={gasSnapshot.status} />
+              </div>
+              <Metric label="Agent balance" value={`${gasSnapshot.balanceBot} BOT`} />
+              <div className="gasTrack" aria-label={`Agent gas is ${gasSnapshot.status}`}>
+                <span style={{ width: `${Math.min(100, (Number(gasSnapshot.balanceBot) / Math.max(Number(gasSnapshot.thresholdBot), 0.0001)) * 100)}%` }} />
+              </div>
+              <p>Execution threshold: {gasSnapshot.thresholdBot} BOT.</p>
+              {!gasSnapshot.canExecute && <a className="button primary small" href={FAUCET_URL} target="_blank" rel="noreferrer">Fund from faucet <ExternalLink size={14} /></a>}
+            </div>
+
+            <div className="panel publicVaultPanel">
+              <div className="panelTop">
+                <h3><UserRound size={18} /> Public vault</h3>
+                <span>{vaultSnapshot?.txCount ?? activityFeed.length} indexed</span>
+              </div>
+              <code>{publicVaultAddress || 'Waiting for vault address'}</code>
+              <div className="proofRows compact">
+                <Metric label="Daily limit" value={`${vaultSnapshot?.dailyLimitBot || dailyLimit} BOT`} />
+                <Metric label="Spent today" value={`${vaultSnapshot?.todaySpentBot || '0.0'} BOT`} />
+                <Metric label="Vault balance" value={`${Number(vaultSnapshot?.vaultBalanceBot || 0).toFixed(4)} BOT`} />
+                <Metric label="Latest block" value={agentStatus.latestBlock || agentStatus.lastBlockNumber || 'Waiting'} />
+              </div>
+              <div className="splitButtons">
+                {publicVaultAddress && <a className="button outline small" href={`${TESTNET.explorerUrl}/address/${publicVaultAddress}`} target="_blank" rel="noreferrer">Open vault <ExternalLink size={14} /></a>}
+                <button className="button ghost small" onClick={refreshProductData}><RefreshCcw size={14} />Refresh index</button>
+              </div>
+              <p className="panelNote">{productRefreshStatus}</p>
+            </div>
+
+            <div className="panel integrationsPanel">
+              <div className="panelTop">
+                <h3><GitBranch size={18} /> Verified testnet integrations</h3>
+                <span>Official addresses</span>
+              </div>
+              {VERIFIED_INTEGRATIONS.map((integration) => (
+                <a className="integrationRow" href={integration.explorerUrl} target="_blank" rel="noreferrer" key={integration.id}>
+                  <span><strong>{integration.name}</strong><small>{integration.type}</small></span>
+                  <code>{shortAddress(integration.address)}</code>
+                  <ExternalLink size={14} />
+                </a>
+              ))}
+            </div>
+
+            <div className="panel indexedActivity">
+              <div className="panelTop">
+                <h3><Activity size={18} /> Indexed executions</h3>
+                <span>{activityFeed.length} recent</span>
+              </div>
+              <div className="activityList">
+                {activityFeed.length ? activityFeed.slice(0, 6).map((event) => (
+                  <a href={event.explorerUrl} target="_blank" rel="noreferrer" className="activityRow" key={`${event.transactionHash}-${event.executionId}`}>
+                    <span className="activityPulse" />
+                    <span><strong>{Number(event.amountBot || 0) > 0 ? `${Number(event.amountBot).toFixed(2)} BOT ${event.actionLabel || 'execution'}` : event.actionLabel || 'Policy execution receipt'}</strong><small>Block {event.blockNumber}</small></span>
+                    <code>{shortAddress(event.transactionHash)}</code>
+                    <ExternalLink size={14} />
+                  </a>
+                )) : (
+                  <div className="emptyState"><RefreshCcw size={20} /><strong>Indexer warming up</strong><span>The latest confirmed agent transaction remains visible in Agent activity below.</span></div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {productTab === 'deploy' && (
+          <div className="launchpadGrid">
+            <div className="templateList">
+              {policyTemplates.map((template) => (
+                <button className={selectedTemplateId === template.id ? 'templateCard selected' : 'templateCard'} key={template.id} onClick={() => applyPolicyTemplate(template)}>
+                  <span><strong>{template.name}</strong><small>{template.dailyLimit} BOT/day</small></span>
+                  <p>{template.description}</p>
+                  <ChevronRight size={18} />
+                </button>
+              ))}
+            </div>
+            <div className="panel deployPanel">
+              <div className="panelTop">
+                <h3><Rocket size={18} /> Deploy {selectedTemplate.name}</h3>
+                <span>BOT testnet</span>
+              </div>
+              <label className="formField">
+                <span>Agent wallet</span>
+                <input value={deployForm.agentAddress} onChange={(event) => setDeployForm((current) => ({ ...current, agentAddress: event.target.value }))} placeholder={agentStatus.agentAddress || '0x...'} />
+                <small>Leave blank to use the hosted agent address.</small>
+              </label>
+              <label className="formField">
+                <span>Daily spend limit</span>
+                <div className="unitInput"><input type="number" min="1" max="1000" value={deployForm.dailyLimit} onChange={(event) => setDeployForm((current) => ({ ...current, dailyLimit: event.target.value }))} /><small>BOT</small></div>
+              </label>
+              <div className="deploySummary">
+                <span><Check size={14} />Owner-controlled deployment</span>
+                <span><Check size={14} />Agent and action allowlists</span>
+                <span><Check size={14} />Daily on-chain accounting</span>
+                <span><Check size={14} />Emergency owner controls</span>
+                {selectedTemplate.id === 'trader' && <span><Check size={14} />Verified BDEX V2 router policy</span>}
+              </div>
+              <div className="splitButtons">
+                <button className="button primary" onClick={deployNewVault}><Rocket size={16} />Deploy vault</button>
+                <a className="button outline" href={FAUCET_URL} target="_blank" rel="noreferrer"><Fuel size={16} />Get test BOT</a>
+              </div>
+              <div className="deploymentReceipt" aria-live="polite">
+                <strong>{deployment.status}</strong>
+                {deployment.hash && <code>{shortAddress(deployment.hash)}</code>}
+                {deployment.explorerUrl && <a href={deployment.explorerUrl} target="_blank" rel="noreferrer">View receipt <ExternalLink size={14} /></a>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {productTab === 'alerts' && (
+          <div className="alertsGrid">
+            <div className="panel alertCard profileCard">
+              <UserRound size={22} />
+              <h3>Operator profile</h3>
+              <label className="formField compactField">
+                <span>Display name</span>
+                <input value={profileName} maxLength="40" onChange={(event) => setProfileName(event.target.value)} />
+              </label>
+              <button className="button outline" onClick={saveProfile}><Check size={16} />Save profile</button>
+              <span className="panelNote">{profileStatus}</span>
+            </div>
+            <div className="panel alertCard">
+              <Bell size={22} />
+              <h3>Execution alerts</h3>
+              <p>Receive a browser notification when the indexer sees a new confirmed AgentExecution.</p>
+              <button className={browserAlerts ? 'button primary' : 'button outline'} onClick={toggleBrowserAlerts}><Bell size={16} />{browserAlerts ? 'Alerts enabled' : 'Enable alerts'}</button>
+              <span className="panelNote">{alertStatus}</span>
+            </div>
+            <div className="panel alertCard">
+              <Send size={22} />
+              <h3>Operator delivery</h3>
+              <p>The hosted worker supports email, Telegram, and webhook delivery after each confirmed transaction.</p>
+              <StatusLabel status={agentStatus.lastAlertStatus || 'ready'} />
+            </div>
+            <div className="panel alertCard shareCard">
+              <Copy size={22} />
+              <h3>Share public proof</h3>
+              <p>Invite operators and reviewers directly into this vault’s live execution record.</p>
+              <button className="button primary" onClick={copyPublicVaultLink}><Copy size={16} />{shareStatus}</button>
+              {referralSource && <span className="panelNote">Referred by {shortAddress(referralSource)}</span>}
+            </div>
+          </div>
+        )}
+      </section>
+
       <section className="section featureGrid" id="policies">
         <div className="sectionHead">
           <div>
@@ -738,7 +1158,7 @@ function App() {
           </div>
           <div className="panel reviewMini">
             <h3>Agent proposal queue</h3>
-            <p>{selectedProposal.agent} can {selectedProposal.action.toLowerCase()} after policy, wallet, and network checks pass.</p>
+            <p>{selectedProposal.agent} can {actionPhrase(selectedProposal.action)} after policy, wallet, and network checks pass.</p>
             <div className="actionPicker" aria-label="Select agent action">
               {actionOptions.map((action) => (
                 <button key={action.id} className={selectedActionId === action.id ? 'chip selected' : 'chip'} onClick={() => selectAction(action)}>
@@ -766,7 +1186,7 @@ function App() {
       <section className="section review imageReview" id="review">
         <div className="reviewPanel">
           <div className="panelTop">
-            <h2>Proposed {selectedProposal.protocol} {selectedProposal.action.toLowerCase()}</h2>
+            <h2>{proposalTitle(selectedProposal)}</h2>
             <StatusLabel status={proposalStatus} />
           </div>
           <div className="proposalGrid">
@@ -867,7 +1287,7 @@ function App() {
           </div>
         </div>
         <div className="executionGrid">
-          <PolicyCard title={`${selectedProposal.protocol} ${selectedProposal.action}`} icon={RefreshCcw} labels={[selectedProposal.route, `${dailyLimit} BOT daily`, `${selectedProposal.amount} BOT requested`]} enabled={policies[selectedProposal.policyKey]} />
+          <PolicyCard title={policyTitle(selectedProposal)} icon={RefreshCcw} labels={[selectedProposal.route, `${dailyLimit} BOT daily`, `${selectedProposal.amount} BOT requested`]} enabled={policies[selectedProposal.policyKey]} />
           <PolicyCard title="BOT Bridge" icon={GitBranch} labels={['destination allowlist', 'guardian review', '8.2 BOT queued']} enabled={policies.bridge} />
           <div className="panel agentProof">
             <div className="panelTop">
@@ -985,7 +1405,7 @@ function DashboardPreview({ wallet, configured, vaultStatus, dailyLimit, selecte
         <Bot size={20} />
         <div>
           <strong>{selectedProposal.agent}</strong>
-          <p>{selectedProposal.agent} can propose a {selectedProposal.protocol} {selectedProposal.action.toLowerCase()}. Execution waits for policy, network, and signature checks.</p>
+          <p>{selectedProposal.agent} can propose to {actionPhrase(selectedProposal.action)} through {selectedProposal.protocol}. Execution waits for policy, network, and signature checks.</p>
         </div>
         <BadgeCheck size={20} />
       </div>
@@ -1047,4 +1467,7 @@ function PolicyCard({ title, icon: Icon, labels, enabled }) {
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+const rootElement = document.getElementById('root');
+const appRoot = window.__agentVaultRoot || createRoot(rootElement);
+window.__agentVaultRoot = appRoot;
+appRoot.render(<App />);

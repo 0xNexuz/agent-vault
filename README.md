@@ -19,6 +19,13 @@ AgentVault gives AI agents a controlled treasury they can use without taking ful
 - Supports single proposal signing and one-shot policy bundle signing.
 - Shows live hosted-agent activity after the browser wallet is disconnected.
 - Displays latest tx hash, block number, vault address, agent wallet, and explorer link.
+- Indexes recent `AgentExecution` logs and exposes a public vault activity view.
+- Monitors the hosted agent wallet gas balance and execution threshold.
+- Scores agent reliability using heartbeat, gas, bytecode, and execution history.
+- Includes Trader, Bridge Guardian, Rewards Operator, and DAO Ops policy templates.
+- Deploys new vaults from the browser, with verified BDEX V2 target and selector policy for Trader vaults.
+- Delivers confirmed-transaction alerts through browser notifications, Telegram, email, or webhooks.
+- Creates shareable vault and referral links.
 - Exports an audit log covering approvals, policies, manual wallet txs, and autonomous agent txs.
 
 ## BOT Chain Testnet
@@ -36,14 +43,16 @@ Explorer: https://scan.bohr.life
 flowchart TD
   U["Owner / user"] --> FE["AgentVault frontend on Vercel"]
   FE --> W["Injected wallet: BO Wallet / EVM wallet"]
-  FE --> R["Render worker status API"]
+  FE --> R["Render worker API"]
   W -->|personal_sign| A["Owner approval intent"]
   W -->|optional owner tx| C["BOT Chain testnet"]
   R --> AG["Hosted agent worker"]
   AG -->|signs with AGENT_PRIVATE_KEY| V["AgentVault smart contract"]
-  V -->|AgentExecution event| C
+  V -->|AgentExecution / protocol call| C
   C --> E["BOT Chain explorer"]
-  R -->|latest heartbeat, tx, block| FE
+  R --> IX["Event indexer + gas monitor"]
+  IX -->|activity, score, vault state| FE
+  R --> N["Email / Telegram / webhook alerts"]
   FE -->|Open transaction| E
 ```
 
@@ -58,6 +67,9 @@ It enforces:
 - allowed action IDs
 - daily spend limits
 - event receipts for agent execution
+- protocol target and function-selector allowlists
+- reentrancy protection and owner withdrawals
+- BDEX V2 calls from newly deployed, funded vaults
 
 Current BOT testnet deployment:
 
@@ -99,7 +111,17 @@ Production worker:
 https://agent-vault-1.onrender.com/status
 ```
 
-The worker submits a new agent execution roughly every 60 seconds, depending on RPC and hosting latency.
+The worker submits a new agent execution roughly every 60 seconds, depending on RPC and hosting latency. The hosted demo remains in `proof` mode. Newly deployed vaults can use `bdex-v2` mode after the owner configures the verified router policy and funds the vault with test BOT.
+
+Worker API:
+
+```txt
+GET /status                 latest heartbeat and transaction
+GET /api/activity           indexed AgentExecution events
+GET /api/vault              hosted vault state and agent score
+GET /api/vault?address=...  public state for a shared AgentVault
+GET /health                 service and gas health
+```
 
 ## Production Build
 
@@ -131,4 +153,27 @@ AGENT_PRIVATE_KEY=...
 VAULT_ADDRESS=...
 AGENT_INTERVAL_MS=60000
 AGENT_ACTION_AMOUNT_BOT=0
+AGENT_EXECUTION_MODE=proof
+AGENT_GAS_THRESHOLD_BOT=0.05
+AGENT_INDEX_LOOKBACK_BLOCKS=25000
+AGENT_INDEX_CHUNK_BLOCKS=5000
+```
+
+Execution modes:
+
+```txt
+proof     Emits a policy-scoped AgentExecution receipt without moving assets.
+bdex-v2   Swaps vault BOT through the allowlisted BDEX V2 selector and router.
+bridge    Executes owner-reviewed BRIDGE_CALLDATA through the configured bridge selector.
+```
+
+Optional alerts:
+
+```txt
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...
+RESEND_API_KEY=...
+ALERT_EMAIL_TO=...
+ALERT_EMAIL_FROM=AgentVault <alerts@example.com>
+ALERT_WEBHOOK_URL=https://...
 ```

@@ -4,6 +4,7 @@ dist
 .env.local
 .vercel
 work
+outputs
 npm-debug.log*
 
 .vercel
