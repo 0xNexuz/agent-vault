@@ -37,6 +37,15 @@ Native token: BOT
 Explorer: https://scan.bohr.life
 ```
 
+## BOT Chain Mainnet
+
+```txt
+Chain ID: 677
+RPC: https://rpc.botchain.ai
+Native token: BOT
+Explorer: https://scan.botchain.ai
+```
+
 ## Architecture
 
 ```mermaid
@@ -77,6 +86,18 @@ Current BOT testnet deployment:
 Vault: 0xacACe949cdf6f2202F2c510d5D0674af97C11b87
 Agent: 0xe5ABF60A6855048fEd12938aA6C699c86C09b915
 ```
+
+Current BOT mainnet deployment:
+
+```txt
+Vault: 0xacACe949cdf6f2202F2c510d5D0674af97C11b87
+Owner: 0x9CBc32a0aCDe85f4e25b23eb064f46EE788bA4d6
+Agent: 0xe5ABF60A6855048fEd12938aA6C699c86C09b915
+Daily limit: 50 BOT
+Explorer: https://scan.botchain.ai/address/0xacACe949cdf6f2202F2c510d5D0674af97C11b87
+```
+
+The mainnet and testnet vault addresses match because the same deployer address used nonce `0` on both chains. They are separate contracts on separate networks.
 
 ## Local Setup
 
@@ -122,6 +143,19 @@ GET /api/vault              hosted vault state and agent score
 GET /api/vault?address=...  public state for a shared AgentVault
 GET /health                 service and gas health
 ```
+
+To run the hosted worker against mainnet, set the host environment to:
+
+```txt
+BOT_CHAIN_ID=677
+BOT_NETWORK_NAME=BOT Chain Mainnet
+BOT_RPC_URL=https://rpc.botchain.ai
+BOT_EXPLORER_URL=https://scan.botchain.ai
+VAULT_ADDRESS=0xacACe949cdf6f2202F2c510d5D0674af97C11b87
+AGENT_PRIVATE_KEY=...
+```
+
+Leaving these unset keeps the worker on the current BOT testnet defaults.
 
 ## Production Build
 

@@ -47,6 +47,16 @@ const TESTNET = {
   currencySymbol: import.meta.env.VITE_BOT_TESTNET_SYMBOL || 'BOT',
 };
 
+const MAINNET_DEPLOYMENT = {
+  network: 'BOT Chain Mainnet',
+  chainId: 677,
+  vaultAddress: '0xacACe949cdf6f2202F2c510d5D0674af97C11b87',
+  owner: '0x9CBc32a0aCDe85f4e25b23eb064f46EE788bA4d6',
+  agentAddress: '0xe5ABF60A6855048fEd12938aA6C699c86C09b915',
+  dailyLimitBot: '50',
+  explorerUrl: 'https://scan.botchain.ai/address/0xacACe949cdf6f2202F2c510d5D0674af97C11b87',
+};
+
 const VERIFIED_INTEGRATIONS = [
   {
     id: 'bdex-v2',
@@ -996,6 +1006,19 @@ function App() {
               </section>
               <section id="vault">
                 <h2>Vault contract</h2>
+                <div className="mainnetContractCard">
+                  <div>
+                    <p className="eyebrow">Mainnet deployment</p>
+                    <h3>{MAINNET_DEPLOYMENT.network}</h3>
+                    <p>Chain {MAINNET_DEPLOYMENT.chainId}. Owner-controlled AgentVault with the hosted agent allowlisted and a {MAINNET_DEPLOYMENT.dailyLimitBot} BOT daily limit.</p>
+                  </div>
+                  <div className="contractFacts">
+                    <Metric label="Vault" value={shortAddress(MAINNET_DEPLOYMENT.vaultAddress)} />
+                    <Metric label="Owner" value={shortAddress(MAINNET_DEPLOYMENT.owner)} />
+                    <Metric label="Agent" value={shortAddress(MAINNET_DEPLOYMENT.agentAddress)} />
+                    <a className="button primary small" href={MAINNET_DEPLOYMENT.explorerUrl} target="_blank" rel="noreferrer">Open mainnet contract <ExternalLink size={14} /></a>
+                  </div>
+                </div>
                 <div className="docsGrid compactDocs">
                   {docs.map((item, index) => (
                     <article className="docCard" key={item.title}>

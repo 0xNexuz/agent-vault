@@ -7,8 +7,10 @@ import { buildAgentScore, buildGasHealth, isRecent, serialiseExecutionLog } from
 
 const root = process.cwd();
 const port = Number(process.env.PORT || process.env.AGENT_PORT || 8787);
-const rpcUrl = process.env.BOT_TESTNET_RPC_URL || process.env.VITE_BOT_TESTNET_RPC_URL || 'https://rpc.bohr.life';
-const explorer = process.env.BOT_TESTNET_EXPLORER_URL || process.env.VITE_BOT_TESTNET_EXPLORER_URL || 'https://scan.bohr.life';
+const expectedChainId = BigInt(process.env.BOT_CHAIN_ID || process.env.BOT_TESTNET_CHAIN_ID || '968');
+const networkName = process.env.BOT_NETWORK_NAME || (expectedChainId === 677n ? 'BOT Chain Mainnet' : 'BOT Chain Testnet');
+const rpcUrl = process.env.BOT_RPC_URL || process.env.BOT_TESTNET_RPC_URL || process.env.VITE_BOT_TESTNET_RPC_URL || 'https://rpc.bohr.life';
+const explorer = process.env.BOT_EXPLORER_URL || process.env.BOT_TESTNET_EXPLORER_URL || process.env.VITE_BOT_TESTNET_EXPLORER_URL || (expectedChainId === 677n ? 'https://scan.botchain.ai' : 'https://scan.bohr.life');
 const privateKey = process.env.AGENT_PRIVATE_KEY;
 const vaultAddress = process.env.VAULT_ADDRESS;
 const intervalMs = Number(process.env.AGENT_INTERVAL_MS || 60000);
@@ -39,8 +41,8 @@ const initialState = {
   proof: privateKey && vaultAddress
     ? 'Worker online. Preparing the next policy transaction.'
     : 'Worker online. Add the agent key and vault address in the host secrets to begin on-chain execution.',
-  network: 'BOT Chain Testnet',
-  chainId: 968,
+  network: networkName,
+  chainId: Number(expectedChainId),
   vaultAddress: vaultAddress || '',
   agentAddress: '',
   lastHeartbeatAt: '',
@@ -173,8 +175,8 @@ async function readPublicVault(targetVaultAddress) {
   const spent = publicAgentAddress ? await readVault.getTodaySpent(publicAgentAddress) : [0n, 0n];
   const gas = buildGasHealth(agentBalance, gasThresholdWei);
   return {
-    network: 'BOT Chain Testnet',
-    chainId: 968,
+    network: networkName,
+    chainId: Number(expectedChainId),
     vaultAddress: targetVaultAddress,
     owner,
     agentAddress: publicAgentAddress,
@@ -229,8 +231,8 @@ async function runOnce() {
 
   const wallet = new ethers.Wallet(privateKey, provider);
   const network = await provider.getNetwork();
-  if (network.chainId !== 968n) {
-    throw new Error(`Agent RPC is on chain ${network.chainId}, expected 968.`);
+  if (network.chainId !== expectedChainId) {
+    throw new Error(`Agent RPC is on chain ${network.chainId}, expected ${expectedChainId}.`);
   }
 
   const vault = new ethers.Contract(vaultAddress, abi, wallet);

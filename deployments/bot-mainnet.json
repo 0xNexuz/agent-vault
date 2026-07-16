@@ -1,0 +1,11 @@
+{
+  "network": "BOT Chain Mainnet",
+  "chainId": 677,
+  "rpcUrl": "https://rpc.botchain.ai",
+  "explorer": "https://scan.botchain.ai",
+  "vaultAddress": "0xacACe949cdf6f2202F2c510d5D0674af97C11b87",
+  "owner": "0x9CBc32a0aCDe85f4e25b23eb064f46EE788bA4d6",
+  "agentAddress": "0xe5ABF60A6855048fEd12938aA6C699c86C09b915",
+  "dailyLimitBot": "50",
+  "deployedAt": "2026-07-16T16:11:47.065Z"
+}
